@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 7%;
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 42%;
+  --border: 0 0% 88%;
+  --primary: 0 0% 8%;
+  --success: 142 72% 40%;
+  --warning: 38 92% 50%;
+  --danger: 0 72% 51%;
+  --info: 217 91% 60%;
+}
+
+.dark {
+  --background: 0 0% 10%;
+  --foreground: 0 0% 96%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 64%;
+  --border: 0 0% 24%;
+  --primary: 0 0% 96%;
+  --success: 142 70% 45%;
+  --warning: 38 92% 55%;
+  --danger: 0 72% 58%;
+  --info: 217 91% 65%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  min-height: 100%;
+  background: hsl(var(--background));
+}
+
+body {
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+  background-position: -1px -1px;
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
+  pointer-events: none;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+::selection {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}

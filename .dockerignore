@@ -1,0 +1,20 @@
+node_modules
+.next
+out
+build
+coverage
+.git
+.github
+.vercel
+.wrangler
+.cache
+.turbo
+.learnings
+.env
+.env*.local
+*.log
+Dockerfile
+docker-compose.yml
+README.md
+emos_api.md
+check-cx ui.md

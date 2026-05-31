@@ -1,0 +1,15 @@
+services:
+  emos-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: emos-web:latest
+    container_name: emos-web
+    restart: unless-stopped
+    ports:
+      - "5791:5791"
+    environment:
+      NODE_ENV: production
+      PORT: 5791
+      HOSTNAME: 0.0.0.0
+      EMOS_API_BASE_URL: https://emos.best
