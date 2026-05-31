@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "https://emos.best";
+const DEFAULT_API_BASE_URL = "https://api.emos.best";
 
 export function getEmosApiBaseUrl(request?: Request) {
   const apiHost = request?.headers.get("x-emos-api-host")?.trim();

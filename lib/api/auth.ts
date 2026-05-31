@@ -1,7 +1,7 @@
 import { requestJson } from "@/lib/api/request";
 import type { SignCheckResponse } from "@/lib/api/types";
 
-const EMOS_PUBLIC_BASE_URL = "https://emos.best";
+const EMOS_PUBLIC_BASE_URL = "https://api.emos.best";
 
 function createUuid() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {

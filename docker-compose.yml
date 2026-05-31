@@ -12,4 +12,4 @@ services:
       NODE_ENV: production
       PORT: 5791
       HOSTNAME: 0.0.0.0
-      EMOS_API_BASE_URL: https://emos.best
+      EMOS_API_BASE_URL: https://api.emos.best

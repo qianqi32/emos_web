@@ -1,5 +1,5 @@
 const API_HOST_STORAGE_KEY = "emos-api-host";
-export const DEFAULT_API_HOST = "https://emos.best";
+export const DEFAULT_API_HOST = "https://api.emos.best";
 
 export function normalizeApiHost(value: string) {
   return value.trim().replace(/\/$/, "");

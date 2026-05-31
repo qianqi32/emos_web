@@ -61,7 +61,7 @@
 在项目根目录创建 `.env`：
 
 ```bash
-EMOS_API_BASE_URL=https://emos.best
+EMOS_API_BASE_URL=https://api.emos.best
 ```
 
 ### 本地开发
@@ -147,9 +147,38 @@ emos_web/
 
 项目支持标准 Next.js standalone Docker 镜像，适合部署到自有服务器，避免 Serverless 平台出口 IP 被 EMOS Cloudflare/WAF 拦截。
 
+#### 使用 Docker Hub 镜像（推荐）
+
 ```bash
-# 构建并启动
-docker compose up -d --build
+docker pull kiyukie/emos-web:latest
+docker run -d \
+  --name emos-web \
+  --restart unless-stopped \
+  -p 5791:5791 \
+  -e EMOS_API_BASE_URL=https://api.emos.best \
+  kiyukie/emos-web:latest
+```
+
+#### 使用 docker-compose
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  emos-web:
+    image: kiyukie/emos-web:latest
+    container_name: emos-web
+    restart: unless-stopped
+    ports:
+      - "5791:5791"
+    environment:
+      EMOS_API_BASE_URL: https://api.emos.best
+```
+
+启动服务：
+
+```bash
+docker compose up -d
 
 # 查看日志
 docker compose logs -f
@@ -161,22 +190,16 @@ docker compose down
 默认监听：
 
 ```txt
-http://服务器 IP:3000
+http://服务器 IP:5791
 ```
 
-默认环境变量：
-
-```yaml
-EMOS_API_BASE_URL: https://emos.best
-```
-
-如需反向代理，推荐在 Nginx / Caddy 中将域名转发到本机 `127.0.0.1:3000`。
+如需反向代理，推荐在 Nginx / Caddy 中将域名转发到本机 `127.0.0.1:5791`。
 
 ### Vercel
 
 1. 将仓库推送到 GitHub
 2. 在 [Vercel](https://vercel.com/) 导入项目
-3. 配置环境变量：`EMOS_API_BASE_URL=https://emos.best`
+3. 配置环境变量：`EMOS_API_BASE_URL=https://api.emos.best`
 4. 部署
 
 ### Cloudflare Pages / EdgeOne Pages
@@ -191,7 +214,7 @@ pnpm build
 3. 环境变量配置：
 
 ```bash
-EMOS_API_BASE_URL=https://emos.best
+EMOS_API_BASE_URL=https://api.emos.best
 ```
 
 4. 根据目标平台的 Next.js 适配要求配置输出方式
