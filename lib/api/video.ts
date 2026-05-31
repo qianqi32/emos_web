@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse, PaginatedResponse } from "@/lib/api/types";
+import type { ApiEntity, MutationResponse, VideoEpisodeItem, VideoListResponse, VideoSeasonItem } from "@/lib/api/types";
 
 export interface VideoListParams extends QueryParams {
   tmdb_id?: string;
@@ -9,6 +9,19 @@ export interface VideoListParams extends QueryParams {
   title?: string;
   only_delete?: boolean;
   with_media?: boolean;
+  page?: number;
+  page_size?: number;
+}
+
+export interface VideoSearchParams extends QueryParams {
+  last_id?: string;
+  tmdb_id?: string;
+  todb_id?: string;
+  video_id?: string;
+  type?: string;
+  title?: string;
+  with_genre?: boolean;
+  sort_by?: string;
   page?: number;
   page_size?: number;
 }
@@ -35,6 +48,12 @@ export interface VideoSyncParams extends QueryParams {
 
 export interface VideoEpisodeParams extends QueryParams {
   season_number?: string;
+  with_seek?: boolean;
+  with_seek_is_request?: boolean;
+}
+
+export interface VideoPersonsParams extends QueryParams {
+  title?: string;
 }
 
 export function syncVideo(params?: VideoSyncParams, token?: string) {
@@ -50,7 +69,11 @@ export function getVideoId(params: VideoIdParams, token?: string) {
 }
 
 export function getVideoList(params?: VideoListParams, token?: string) {
-  return requestJson<PaginatedResponse>(buildApiPath("/api/emos/api/video/list", params), token);
+  return requestJson<VideoListResponse>(buildApiPath("/api/emos/api/video/list", params), token);
+}
+
+export function searchVideo(params?: VideoSearchParams, token?: string) {
+  return requestJson<VideoListResponse>(buildApiPath("/api/emos/api/video/search", params), token);
 }
 
 export function toggleVideoDelete(videoId: string, token?: string) {
@@ -58,9 +81,13 @@ export function toggleVideoDelete(videoId: string, token?: string) {
 }
 
 export function getVideoSeasons(videoId: string, token?: string) {
-  return requestJson<ApiEntity[]>(`/api/emos/api/video/${encodeURIComponent(videoId)}/season`, token);
+  return requestJson<VideoSeasonItem[]>(`/api/emos/api/video/${encodeURIComponent(videoId)}/season`, token);
 }
 
 export function getVideoEpisodes(videoId: string, params?: VideoEpisodeParams, token?: string) {
-  return requestJson<ApiEntity[]>(buildApiPath(`/api/emos/api/video/${encodeURIComponent(videoId)}/episode`, params), token);
+  return requestJson<VideoEpisodeItem[]>(buildApiPath(`/api/emos/api/video/${encodeURIComponent(videoId)}/episode`, params), token);
+}
+
+export function getVideoPersons(params?: VideoPersonsParams, token?: string) {
+  return requestJson<ApiEntity[]>(buildApiPath("/api/emos/api/video/persons", params), token);
 }

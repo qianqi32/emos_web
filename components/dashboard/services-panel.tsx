@@ -4,6 +4,8 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import type { UserProfile } from "@/lib/api/types";
 
 export function ServicesPanel({ user }: { user: UserProfile }) {
+  const telegramBindLabel = user.telegram_bind_url && !user.telegram_user_id ? "未绑定" : "已绑定";
+
   return (
     <GlassPanel className="p-5 sm:p-6">
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -17,7 +19,7 @@ export function ServicesPanel({ user }: { user: UserProfile }) {
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <ServiceLink label="Telegram Group" href={user.telegram_group_url} />
-        <ServiceLink label="Telegram Bind" href={user.telegram_bind_url} />
+        <ServiceLink label="Telegram Bind" href={user.telegram_bind_url} unavailableLabel={telegramBindLabel} />
       </div>
     </GlassPanel>
   );

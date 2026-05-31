@@ -12,7 +12,7 @@ export function FieldRow({ label, value }: { label: string; value: string | numb
   );
 }
 
-export function ServiceLink({ label, href }: { label: string; href: string | null }) {
+export function ServiceLink({ label, href, unavailableLabel = "未开通" }: { label: string; href: string | null; unavailableLabel?: string }) {
   async function handleCopy() {
     if (!href) {
       return;
@@ -25,7 +25,7 @@ export function ServiceLink({ label, href }: { label: string; href: string | nul
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/15 p-4">
       <div className="min-w-0">
         <div className="text-sm font-semibold">{label}</div>
-        <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">{href ?? "未开通"}</div>
+        <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">{href ?? unavailableLabel}</div>
       </div>
       {href ? (
         <button type="button" onClick={handleCopy} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 transition-colors hover:bg-muted/40" aria-label={`复制 ${label}`}>

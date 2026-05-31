@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse } from "@/lib/api/types";
+import type { SaveSubtitleUploadResponse, SaveVideoUploadResponse, UploadTokenResponse, UploadVideoBaseResponse } from "@/lib/api/types";
 
 export interface UploadVideoBaseParams extends QueryParams {
   item_type: string;
@@ -21,17 +21,17 @@ export interface UploadTokenPayload {
 }
 
 export function getVideoBaseInfo(params: UploadVideoBaseParams, token?: string) {
-  return requestJson<ApiEntity>(buildApiPath("/api/emos/api/upload/video/base", params), token);
+  return requestJson<UploadVideoBaseResponse>(buildApiPath("/api/emos/api/upload/video/base", params), token);
 }
 
 export function saveVideoUpload(data: SaveUploadPayload, token?: string) {
-  return requestJson<MutationResponse>("/api/emos/api/upload/video/save", token, jsonRequestInit("POST", data));
+  return requestJson<SaveVideoUploadResponse>("/api/emos/api/upload/video/save", token, jsonRequestInit("POST", data));
 }
 
 export function saveSubtitleUpload(data: SaveUploadPayload, token?: string) {
-  return requestJson<MutationResponse>("/api/emos/api/upload/subtitle/save", token, jsonRequestInit("POST", data));
+  return requestJson<SaveSubtitleUploadResponse>("/api/emos/api/upload/subtitle/save", token, jsonRequestInit("POST", data));
 }
 
 export function getUploadToken(data: UploadTokenPayload, token?: string) {
-  return requestJson<ApiEntity>("/api/emos/api/upload/getUploadToken", token, jsonRequestInit("POST", data));
+  return requestJson<UploadTokenResponse>("/api/emos/api/upload/getUploadToken", token, jsonRequestInit("POST", data));
 }

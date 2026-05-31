@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CornerPlus } from "@/components/ui/corner-plus";
+import { AppFooter } from "@/components/app-footer";
 import { LandingView } from "@/components/landing-view";
 import { checkSign, createAuthLink, getUser } from "@/lib/api/client";
 import { clearStoredToken, getStoredToken, readOAuthCallback, setStoredToken } from "@/lib/auth/session";
@@ -91,6 +92,7 @@ export default function Home() {
       <CornerPlus className="fixed bottom-4 right-4 h-6 w-6 md:bottom-8 md:right-8" />
 
       <LandingView token={token} status={status === "checking" ? "loading" : status} message={message} onTokenChange={setToken} onTokenLogin={handleTokenLogin} onAuthLogin={handleAuthLogin} />
+      <AppFooter />
     </main>
   );
 }

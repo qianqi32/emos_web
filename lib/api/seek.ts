@@ -1,13 +1,16 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse, PaginatedResponse } from "@/lib/api/types";
+import type { SeekApplyResponse, SeekClaimResponse, SeekHistoryItem, SeekListResponse, SeekQueryResponse, SeekUrgeResponse } from "@/lib/api/types";
 
 export interface SeekListPayload {
-  video_type?: string;
+  page?: number;
+  page_size?: number;
+  video_type?: string | null;
   sort_by?: "count_request" | "seek_carrot" | "upload_expired_at" | "updated_at" | string;
   sort_order?: "asc" | "desc" | string;
   status?: string[];
   upload_self?: boolean;
-  video_title?: string;
+  video_title?: string | null;
+  with_user?: boolean;
 }
 
 export interface SeekPollParams extends QueryParams {
@@ -42,29 +45,29 @@ export interface SeekUrgePayload {
 }
 
 export function getSeekList(data: SeekListPayload, token?: string) {
-  return requestJson<PaginatedResponse>("/api/emos/api/seek", token, jsonRequestInit("POST", data));
+  return requestJson<SeekListResponse>("/api/emos/api/seek", token, jsonRequestInit("POST", data));
 }
 
 export function getSeekPoll(params?: SeekPollParams, token?: string) {
-  return requestJson<PaginatedResponse>(buildApiPath("/api/emos/api/seek/poll", params), token);
+  return requestJson<SeekListResponse>(buildApiPath("/api/emos/api/seek/poll", params), token);
 }
 
 export function applySeek(params: SeekApplyParams, token?: string) {
-  return requestJson<MutationResponse>(buildApiPath("/api/emos/api/seek/apply", params), token, { method: "PUT" });
+  return requestJson<SeekApplyResponse>(buildApiPath("/api/emos/api/seek/apply", params), token, { method: "PUT" });
 }
 
 export function querySeek(params: SeekQueryParams, token?: string) {
-  return requestJson<ApiEntity>(buildApiPath("/api/emos/api/seek/query", params), token);
+  return requestJson<SeekQueryResponse>(buildApiPath("/api/emos/api/seek/query", params), token);
 }
 
 export function getSeekHistory(params?: SeekHistoryParams, token?: string) {
-  return requestJson<ApiEntity[]>(buildApiPath("/api/emos/api/seek/history", params), token);
+  return requestJson<SeekHistoryItem[]>(buildApiPath("/api/emos/api/seek/history", params), token);
 }
 
 export function claimSeek(data: SeekClaimPayload, token?: string) {
-  return requestJson<MutationResponse>("/api/emos/api/seek/claim", token, jsonRequestInit("PUT", data));
+  return requestJson<SeekClaimResponse>("/api/emos/api/seek/claim", token, jsonRequestInit("PUT", data));
 }
 
 export function urgeSeek(data: SeekUrgePayload, token?: string) {
-  return requestJson<MutationResponse>("/api/emos/api/seek/urge", token, jsonRequestInit("PUT", data));
+  return requestJson<SeekUrgeResponse>("/api/emos/api/seek/urge", token, jsonRequestInit("PUT", data));
 }

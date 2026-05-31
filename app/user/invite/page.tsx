@@ -29,19 +29,33 @@ function normalizeHistory(payload: InviteHistoryResponse | null) {
     return [];
   }
 
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  return payload.list ?? payload.items ?? payload.data ?? [];
+  return payload.items;
 }
 
 function historyTotal(payload: InviteHistoryResponse | null, listLength: number) {
-  if (!payload || Array.isArray(payload)) {
+  if (!payload) {
     return listLength;
   }
 
-  return typeof payload.total === "number" ? payload.total : listLength;
+  return payload.total;
+}
+
+function buildHistorySearchParams(query: string) {
+  const value = query.trim();
+
+  if (!value) {
+    return {};
+  }
+
+  if (USER_ID_PATTERN.test(value)) {
+    return { user_id: value };
+  }
+
+  if (/^\d+$/.test(value)) {
+    return { telegram_user_id: value };
+  }
+
+  return { username: value };
 }
 
 export default function InvitePage() {
@@ -150,8 +164,7 @@ export default function InvitePage() {
       const historyResult = await getInviteHistory({
         page: nextPage,
         page_size: HISTORY_PAGE_SIZE,
-        search: query || undefined,
-        keyword: query || undefined
+        ...buildHistorySearchParams(query)
       }, token);
 
       setHistoryPayload(historyResult);

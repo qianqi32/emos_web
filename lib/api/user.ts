@@ -1,5 +1,5 @@
-import { requestJson } from "@/lib/api/request";
-import type { PseudonymResponse, ShowEmptyResponse, SignInResponse, TemporaryPasswordResponse, UserProfile } from "@/lib/api/types";
+import { jsonRequestInit, requestJson } from "@/lib/api/request";
+import type { DeviceSession, LogoutDeviceResponse, PseudonymResponse, ShowEmptyResponse, SignInResponse, TemporaryPasswordResponse, UserProfile } from "@/lib/api/types";
 
 export function getUser(token?: string) {
   return requestJson<UserProfile>("/api/emos/api/user", token);
@@ -27,4 +27,16 @@ export function agreeUploadAgreement(token?: string) {
 
 export function resetPassword(password: string, token?: string) {
   return requestJson<void>(`/api/emos/api/user/passwordReset?password=${encodeURIComponent(password)}`, token, { method: "PUT" });
+}
+
+export interface VideoServerLogoutPayload {
+  device_id: string | null;
+}
+
+export function getVideoServerHistory(token?: string) {
+  return requestJson<DeviceSession[]>("/api/emos/api/user/server/videoHistory", token);
+}
+
+export function logoutVideoServer(data: VideoServerLogoutPayload, token?: string) {
+  return requestJson<LogoutDeviceResponse>("/api/emos/api/user/server/videoLogout", token, jsonRequestInit("POST", data));
 }

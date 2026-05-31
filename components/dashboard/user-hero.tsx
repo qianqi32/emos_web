@@ -12,10 +12,19 @@ interface UserHeroProps {
 
 type CopyTarget = "id" | "token" | "password";
 
+const roleLabels: Record<string, string> = {
+  admin: "管理员",
+  user: "普通用户"
+};
+
+function formatRole(role: string) {
+  return roleLabels[role] ?? role;
+}
+
 export function UserHero({ token, user }: UserHeroProps) {
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const displayName = user.pseudonym ?? user.username;
-  const roles = user.roles.length ? user.roles.join(" / ") : "普通用户";
+  const roles = user.roles.length ? user.roles.map(formatRole).join(" / ") : "普通用户";
 
   async function copyValue(target: CopyTarget, value: string | number | null | undefined) {
     if (value === null || value === undefined || value === "") {

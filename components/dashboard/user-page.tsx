@@ -1,5 +1,6 @@
 import { UserRound } from "lucide-react";
 import { AccountActionsPanel } from "@/components/dashboard/account-actions-panel";
+import { DeviceSessionPanel } from "@/components/dashboard/device-session-panel";
 import { UserProfilePanel } from "@/components/dashboard/user-profile-panel";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import type { UserProfile } from "@/lib/api/types";
@@ -25,6 +26,7 @@ export function UserPage({ token, user, onUserChange }: UserPageProps) {
         <UserProfilePanel user={user} />
         <AccountActionsPanel token={token} user={user} onUserChange={onUserChange} />
       </div>
+      <DeviceSessionPanel token={token} />
     </div>
   );
 }

@@ -51,10 +51,11 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={cycleTheme}
-      className="inline-flex h-9 w-[6.75rem] shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 bg-background/50 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+      title={`当前主题：${mode}`}
+      aria-label={`切换主题，当前为 ${mode}`}
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/40 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-background/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
     >
-      <Icon className="h-3.5 w-3.5" />
-      {mode}
+      <Icon className="h-4 w-4" />
     </button>
   );
 }

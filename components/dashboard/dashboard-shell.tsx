@@ -17,12 +17,11 @@ export function DashboardShell({ user, onLogout, children }: DashboardShellProps
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] gap-5 lg:grid-cols-[280px_1fr] lg:gap-6">
+    <div className="mx-auto grid w-full max-w-[1600px] min-w-0 gap-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
       <div className="sticky top-3 z-30 flex items-center justify-between gap-3 rounded-full border border-border/60 bg-background/75 px-3 py-2 backdrop-blur-xl lg:hidden">
         <AppTopBar compact />
-        <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background">
+        <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background" aria-label="打开菜单" title="菜单">
           <Menu className="h-4 w-4" />
-          菜单
         </button>
       </div>
 
@@ -41,7 +40,9 @@ export function DashboardShell({ user, onLogout, children }: DashboardShellProps
         </GlassPanel>
       </aside>
 
-      <section className="space-y-4 lg:space-y-6">{children}</section>
+      <section className="min-w-0 space-y-4 overflow-hidden lg:space-y-6">
+        {children}
+      </section>
     </div>
   );
 }

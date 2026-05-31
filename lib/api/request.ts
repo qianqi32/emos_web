@@ -1,4 +1,5 @@
 import { getStoredApiHost } from "@/lib/api/host";
+import type { ApiErrorPayload } from "@/lib/api/types";
 
 export type QueryParamValue = string | number | boolean | null | undefined;
 export type QueryParams = Record<string, QueryParamValue | QueryParamValue[]>;
@@ -38,6 +39,26 @@ export function jsonRequestInit(method: string, data?: unknown): RequestInit {
   };
 }
 
+function extractApiErrorMessage(payload: ApiErrorPayload) {
+  return payload.message ?? payload.error ?? payload.detail ?? "";
+}
+
+async function readErrorMessage(response: Response) {
+  const raw = await response.text().catch(() => "");
+
+  if (!raw) {
+    return "";
+  }
+
+  try {
+    const payload = JSON.parse(raw) as ApiErrorPayload;
+    const message = extractApiErrorMessage(payload);
+    return message ? String(message) : "";
+  } catch {
+    return raw.slice(0, 200);
+  }
+}
+
 export async function requestJson<T>(path: string, token?: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
 
@@ -54,18 +75,7 @@ export async function requestJson<T>(path: string, token?: string, init?: Reques
   });
 
   if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    let message = "";
-
-    if (raw) {
-      try {
-        const payload = JSON.parse(raw) as { message?: string };
-        message = payload?.message ?? "";
-      } catch {
-        message = raw.slice(0, 200);
-      }
-    }
-
+    const message = await readErrorMessage(response);
     throw new Error(message || `请求失败：${response.status}`);
   }
 

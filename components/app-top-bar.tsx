@@ -7,19 +7,18 @@ interface AppTopBarProps {
 
 export function AppTopBar({ compact = false }: AppTopBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
+    <div className="flex min-w-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background" title="EMOS Control" aria-label="EMOS Control">
         <Activity className="h-4 w-4" />
       </span>
-      <span>EMOS CONTROL</span>
-      {!compact ? <span className="h-4 w-px bg-border" /> : null}
+      {!compact ? <span className="hidden whitespace-nowrap sm:inline">EMOS CONTROL</span> : null}
+      {!compact ? <span className="hidden h-4 w-px bg-border sm:block" /> : null}
       {!compact ? (
-        <a suppressHydrationWarning className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground" href="https://github.com" target="_blank" rel="noreferrer">
-          <Code2 className="h-3.5 w-3.5" />
-          GitHub Sync
+        <a suppressHydrationWarning className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/40 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-background/80 hover:text-foreground" href="https://github.com" target="_blank" rel="noreferrer" title="GitHub Sync" aria-label="GitHub Sync">
+          <Code2 className="h-4 w-4" />
         </a>
       ) : null}
-      <span className="h-4 w-px bg-border" />
+      {!compact ? <span className="hidden h-4 w-px bg-border sm:block" /> : null}
       <ThemeToggle />
     </div>
   );

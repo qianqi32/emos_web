@@ -20,8 +20,12 @@
 | **每日签到** | 在仪表盘提供高频签到入口，签到后自动刷新用户数据 |
 | **账号信息** | 查看用户 ID、用户名、笔名、Telegram 绑定、权限与服务字段 |
 | **账号操作** | 支持临时密码、修改笔名、重置密码、显示空媒体库、同意上传协议 |
+| **账号安全** | 支持临时密码、永久登录密码与视频服登录设备会话管理 |
 | **服务管理** | 展示 Video、Live、Music 等服务地址，并提供一键复制 |
-| **快捷操作** | 预留转赠萝卜、邀请用户、红包工具、抽奖工具、投票工具、请求记录入口 |
+| **邀请管理** | 支持邀请信息、邀请历史分页搜索、邀请用户与撤销邀请 |
+| **媒体库** | 支持真实视频列表、标题搜索、类型筛选、资源状态筛选与无限下拉浏览 |
+| **求片管理** | 支持求片列表、筛选、求片/取消求片、认领、催上片、详情与历史查询 |
+| **快捷操作** | 预留转赠萝卜、红包工具、抽奖工具、投票工具、请求记录入口 |
 | **路由化控制台** | `/user` 下拆分仪表盘、用户信息、媒体库、上传、片单、反代、求片、邀请页面 |
 | **移动端适配** | 桌面端侧边栏，移动端使用顶部入口 + 底部抽屉导航 |
 | **主题系统** | 支持 Light / Dark / System 明暗模式切换 |
@@ -35,13 +39,14 @@
 | ---- | ---- | ---- |
 | `/` | 登录页，包含网页授权登录与 Token 登录 | ✅ |
 | `/user` | 用户仪表盘首页 | ✅ |
-| `/user/profile` | 用户信息与账号操作 | ✅ |
-| `/user/media` | 媒体库 | 🚧 占位 |
-| `/user/upload` | 上传视频 | 🚧 占位 |
-| `/user/watchlist` | 片单列表 | 🚧 占位 |
-| `/user/proxy` | 反代设置 | 🚧 占位 |
-| `/user/seek` | 求片 | 🚧 占位 |
-| `/user/invite` | 邀请 | 🚧 占位 |
+| `/user/profile` | 用户信息、账号操作与视频服登录设备管理 | ✅ |
+| `/user/media` | 媒体库列表、搜索、筛选与无限下拉 | ✅ |
+| `/user/media/[id]` | 媒体详情、季集结构、资源与字幕管理 | ✅ |
+| `/user/upload` | 视频与字幕上传、自动匹配、上传队列和保存结果 | ✅ |
+| `/user/watchlist` | 片单列表、搜索、创建、编辑、删除、订阅、排序与显示状态切换 | ✅ |
+| `/user/proxy` | 反代线路列表、只看自己、添加与删除 | ✅ |
+| `/user/seek` | 求片列表、筛选、求片、认领、催上片、详情与历史 | ✅ |
+| `/user/invite` | 邀请信息、邀请历史搜索、邀请用户与撤销邀请 | ✅ |
 
 > 控制台路由目前采用客户端 Token 恢复与保护。未登录访问 `/user` 会返回登录页。
 
@@ -53,8 +58,8 @@
 
 | 项目 | 版本 |
 | ---- | ---- |
-| Node.js | 建议 ≥ 20 |
-| pnpm | 建议 ≥ 9 |
+| Node.js | 22.x |
+| pnpm | 建议 ≥ 10 |
 
 ### 环境变量
 
@@ -116,13 +121,14 @@ emos_web/
 │   └── user/
 │       ├── layout.tsx              # 用户控制台布局
 │       ├── page.tsx                # 仪表盘首页
-│       ├── profile/page.tsx        # 用户信息与账号操作
-│       ├── media/page.tsx          # 媒体库占位页
-│       ├── upload/page.tsx         # 上传视频占位页
-│       ├── watchlist/page.tsx      # 片单列表占位页
-│       ├── proxy/page.tsx          # 反代设置占位页
-│       ├── seek/page.tsx           # 求片占位页
-│       └── invite/page.tsx         # 邀请占位页
+│       ├── profile/page.tsx        # 用户信息、账号操作与视频服登录设备管理
+│       ├── media/page.tsx          # 媒体库列表、搜索、筛选与无限下拉
+│       ├── media/[id]/page.tsx     # 媒体详情、季集结构、资源与字幕管理
+│       ├── upload/page.tsx         # 视频与字幕上传、自动匹配、上传队列和保存结果
+│       ├── watchlist/page.tsx      # 片单列表、创建、编辑、订阅与排序
+│       ├── proxy/page.tsx          # 反代线路列表、只看自己、添加与删除
+│       ├── seek/page.tsx           # 求片列表、筛选、认领、催上片与历史
+│       └── invite/page.tsx         # 邀请管理页
 ├── components/
 │   ├── dashboard/                  # 控制台 Shell、导航、用户中心与仪表盘卡片
 │   ├── ui/                         # 玻璃面板、状态徽章、指标卡片等基础组件
@@ -223,18 +229,21 @@ EMOS_API_BASE_URL=https://api.emos.best
 
 ## 🔌 已接入 API
 
-| 能力 | 接口 |
+| 模块 | 接口 |
 | ---- | ---- |
 | 登录校验 | `GET /api/sign/check` |
-| 用户信息 | `GET /api/user` |
-| 每日签到 | `PUT /api/user/sign` |
-| 临时密码 | `GET /api/user/passwordTemporary` |
-| 修改笔名 | `PUT /api/user/pseudonym` |
-| 显示空媒体库 | `PUT /api/user/showEmpty` |
-| 重置密码 | `PUT /api/user/passwordReset` |
-| 同意上传协议 | `PUT /api/user/agreeUploadAgreement` |
+| 用户基础 | `GET /api/user`、`PUT /api/user/sign`、`GET /api/user/passwordTemporary`、`PUT /api/user/pseudonym`、`PUT /api/user/showEmpty`、`PUT /api/user/passwordReset`、`PUT /api/user/agreeUploadAgreement` |
+| 视频服设备 | `GET /api/user/server/videoHistory`、`POST /api/user/server/videoLogout` |
+| 邀请 | `POST /api/invite`、`POST /api/invite/emps`、`GET /api/invite/info`、`GET /api/invite/history`、`POST /api/invite/revoke` |
+| 视频 | `PATCH /api/video/sync`、`GET /api/video/tree`、`GET /api/video/getVideoId`、`GET /api/video/list`、`GET /api/video/search`、`PUT /api/video/{video_id}/delete`、`GET /api/video/{video_id}/season`、`GET /api/video/{video_id}/episode`、`GET /api/video/persons` |
+| 媒体资源 | `GET /api/video/media/list`、`DELETE /api/video/media/delete`、`PUT /api/video/media/move`、`PUT /api/video/media/rename`、`GET /api/video/media/playUrl` |
+| 字幕 | `GET /api/video/subtitle/list`、`DELETE /api/video/subtitle/delete`、`PUT /api/video/subtitle/rename` |
+| 上传 | `POST /api/upload/getUploadToken`、`GET /api/upload/video/base`、`POST /api/upload/video/save`、`POST /api/upload/subtitle/save` |
+| 片单 | `POST /api/watch/slot`、`GET /api/watch`、`POST /api/watch`、`PUT /api/watch/{watch_id}/maintainer`、`DELETE /api/watch/{watch_id}`、`PUT /api/watch/{watch_id}/sort`、`PUT /api/watch/{watch_id}/show`、`GET /api/watch/{watch_id}/user`、`PUT /api/watch/{watch_id}/subscribe`、`GET /api/watch/{watch_id}/video`、`GET /api/watch/{watch_id}/video/search`、`POST /api/watch/{watch_id}/video/{video_id}`、`DELETE /api/watch/{watch_id}/video/{video_id}`、`DELETE /api/watch/{watch_id}/video/empty`、`PUT /api/watch/{watch_id}/dynamic`、`POST /api/watch/{watch_id}/video/update` |
+| 反代线路 | `GET /api/proxy/line`、`POST /api/proxy/line`、`DELETE /api/proxy/line` |
+| 求片 | `POST /api/seek`、`GET /api/seek/poll`、`PUT /api/seek/apply`、`GET /api/seek/query`、`GET /api/seek/history`、`PUT /api/seek/claim`、`PUT /api/seek/urge` |
 
-所有请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。
+所有请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。分页响应统一读取文档约定的 `items / total / page / page_size`。
 
 ---
 
@@ -242,14 +251,7 @@ EMOS_API_BASE_URL=https://api.emos.best
 
 | 优先级 | 内容 |
 | ------ | ---- |
-| P0 | 完善路由化控制台与用户中心稳定性 |
-| P1 | 接入邀请模块，支持邀请信息、邀请历史与邀请用户 |
-| P1 | 接入媒体库列表、详情、移动、重命名与删除 |
-| P2 | 接入上传视频与字幕上传流程 |
-| P2 | 接入片单管理、订阅、排序与片单内视频维护 |
-| P2 | 接入反代线路管理 |
-| P3 | 接入求片、投票、认领与催更流程 |
-| P3 | 完善设备管理、请求记录与更多账号安全能力 |
+| P9 | 实装排行榜、萝卜与社区工具 |
 
 ---
 

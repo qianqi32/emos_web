@@ -1,5 +1,15 @@
 export { checkSign, createAuthLink } from "@/lib/api/auth";
-export { agreeUploadAgreement, getTemporaryPassword, getUser, resetPassword, signIn, toggleShowEmpty, updatePseudonym } from "@/lib/api/user";
+export {
+  agreeUploadAgreement,
+  getTemporaryPassword,
+  getUser,
+  getVideoServerHistory,
+  logoutVideoServer,
+  resetPassword,
+  signIn,
+  toggleShowEmpty,
+  updatePseudonym
+} from "@/lib/api/user";
 export * from "@/lib/api/emya";
 export * from "@/lib/api/invite";
 export * from "@/lib/api/media";

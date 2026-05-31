@@ -46,14 +46,19 @@ export interface InviteHistoryItem {
 export interface InviteHistoryParams extends QueryParams {
   page?: number;
   page_size?: number;
-  search?: string;
-  keyword?: string;
+  username?: string;
+  user_id?: string;
+  telegram_user_id?: string;
 }
 
-export type InviteHistoryResponse = PaginatedResponse<InviteHistoryItem> | InviteHistoryItem[];
+export type InviteHistoryResponse = PaginatedResponse<InviteHistoryItem>;
 
 export function inviteUser(data: InviteUserPayload, token?: string) {
   return requestJson<InviteMutationResponse>("/api/emos/api/invite", token, jsonRequestInit("POST", data));
+}
+
+export function inviteEmps(token?: string) {
+  return requestJson<InviteMutationResponse>("/api/emos/api/invite/emps", token, jsonRequestInit("POST"));
 }
 
 export function revokeInvite(data: RevokeInvitePayload, token?: string) {

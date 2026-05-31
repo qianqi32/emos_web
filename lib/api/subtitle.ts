@@ -1,11 +1,16 @@
-import { buildApiPath, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse } from "@/lib/api/types";
+import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
+import type { CarrotMutationResponse, VideoSubtitleItem } from "@/lib/api/types";
 
 export interface SubtitleListParams extends QueryParams {
   video_list_id?: string;
   video_episode_id?: string;
   video_part_id?: string;
-  video_media_id?: string;
+  media_id?: string;
+}
+
+export interface SubtitleDeletePayload {
+  subtitle_id: string;
+  reason?: string | null;
 }
 
 export interface SubtitleRenameParams extends QueryParams {
@@ -14,13 +19,13 @@ export interface SubtitleRenameParams extends QueryParams {
 }
 
 export function getSubtitleList(params?: SubtitleListParams, token?: string) {
-  return requestJson<ApiEntity[]>(buildApiPath("/api/emos/api/video/subtitle/list", params), token);
+  return requestJson<VideoSubtitleItem[]>(buildApiPath("/api/emos/api/video/subtitle/list", params), token);
 }
 
-export function deleteSubtitle(subtitleId: string, token?: string) {
-  return requestJson<MutationResponse>(buildApiPath("/api/emos/api/video/subtitle/delete", { subtitle_id: subtitleId }), token, { method: "DELETE" });
+export function deleteSubtitle(data: SubtitleDeletePayload, token?: string) {
+  return requestJson<CarrotMutationResponse>("/api/emos/api/video/subtitle/delete", token, jsonRequestInit("DELETE", data));
 }
 
 export function renameSubtitle(params: SubtitleRenameParams, token?: string) {
-  return requestJson<MutationResponse>(buildApiPath("/api/emos/api/video/subtitle/rename", params), token, { method: "PUT" });
+  return requestJson<CarrotMutationResponse>(buildApiPath("/api/emos/api/video/subtitle/rename", params), token, { method: "PUT" });
 }
