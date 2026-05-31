@@ -46,6 +46,8 @@ export interface InviteHistoryItem {
 export interface InviteHistoryParams extends QueryParams {
   page?: number;
   page_size?: number;
+  search?: string;
+  keyword?: string;
 }
 
 export type InviteHistoryResponse = PaginatedResponse<InviteHistoryItem> | InviteHistoryItem[];

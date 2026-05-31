@@ -1,7 +1,7 @@
 import { requestJson } from "@/lib/api/request";
 import type { SignCheckResponse } from "@/lib/api/types";
 
-const EMOS_PUBLIC_BASE_URL = "https://api.emos.best";
+const EMOS_AUTH_BASE_URL = "https://emos.best";
 
 function createUuid() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
@@ -12,11 +12,13 @@ function createUuid() {
 }
 
 export function createAuthLink() {
-  const url = new URL("/link", EMOS_PUBLIC_BASE_URL);
-  url.searchParams.set("uuid", createUuid());
-  url.searchParams.set("name", "EMOS Control Console");
-  url.searchParams.set("url", window.location.href);
-  return url.toString();
+  const uuid = createUuid();
+  const params = new URLSearchParams();
+
+  params.set("name", "EMOS Control Console");
+  params.set("url", window.location.href);
+
+  return `${EMOS_AUTH_BASE_URL}/#/link/${uuid}?${params.toString()}`;
 }
 
 export function checkSign(token?: string) {
