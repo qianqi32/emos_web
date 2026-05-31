@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse, VideoEpisodeItem, VideoListResponse, VideoSeasonItem } from "@/lib/api/types";
+import type { ApiEntity, MutationResponse, RecordRequestResponse, VideoEpisodeItem, VideoListResponse, VideoSeasonItem } from "@/lib/api/types";
 
 export interface VideoListParams extends QueryParams {
   tmdb_id?: string;
@@ -8,7 +8,7 @@ export interface VideoListParams extends QueryParams {
   type?: string;
   title?: string;
   only_delete?: boolean;
-  with_media?: boolean;
+  with_media?: boolean | number;
   page?: number;
   page_size?: number;
 }
@@ -90,4 +90,14 @@ export function getVideoEpisodes(videoId: string, params?: VideoEpisodeParams, t
 
 export function getVideoPersons(params?: VideoPersonsParams, token?: string) {
   return requestJson<ApiEntity[]>(buildApiPath("/api/emos/api/video/persons", params), token);
+}
+
+export interface RecordRequestParams extends QueryParams {
+  user_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function getRecordRequest(params?: RecordRequestParams, token?: string) {
+  return requestJson<RecordRequestResponse>(buildApiPath("/api/emos/api/video/record/request", params), token);
 }

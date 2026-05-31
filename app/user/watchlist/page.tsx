@@ -2,6 +2,7 @@
 
 import { BookmarkPlus, Eye, EyeOff, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { deleteWatch, getWatchList, redeemWatchSlot, saveWatch, sortWatch, toggleWatchShow, toggleWatchSubscribe } from "@/lib/api/client";
 import type { WatchListItem } from "@/lib/api/types";
@@ -76,6 +77,7 @@ function formFromWatch(item: WatchListItem): WatchFormState {
 
 export default function WatchlistPage() {
   const { token, user, setUser } = useUserConsole();
+  const router = useRouter();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<WatchListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -428,6 +430,7 @@ export default function WatchlistPage() {
                   {item.tags?.length ? <div className="mt-4 flex flex-wrap gap-2">{item.tags.map((tag) => <span key={tag} className="rounded-full bg-muted/35 px-2.5 py-1 text-[10px] text-muted-foreground">{tag}</span>)}</div> : null}
 
                   <div className="mt-5 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => router.push(`/user/watchlist/${item.id}`)} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40">查看详情</button>
                     {item.is_self ? <button type="button" onClick={() => openEditForm(item)} disabled={action !== "idle"} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">编辑</button> : null}
                     {item.is_subscribe ? <button type="button" onClick={() => handleSort(item)} disabled={action !== "idle"} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">排序</button> : null}
                     {item.is_subscribe ? <button type="button" onClick={() => handleToggleShow(item)} disabled={action !== "idle"} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">{item.user_is_show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}{item.user_is_show ? "隐藏" : "显示"}</button> : null}

@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse, PaginatedResponse, WatchListResponse, WatchSaveResponse, WatchShowResponse, WatchSlotResponse, WatchSubscribeResponse } from "@/lib/api/types";
+import type { MutationResponse, PaginatedResponse, WatchDynamicResponse, WatchListResponse, WatchSaveResponse, WatchShowResponse, WatchSlotResponse, WatchSubscribeResponse, WatchVideoBatchResultItem, WatchVideoCountResponse, WatchVideoListResponse, WatchVideoSearchItem } from "@/lib/api/types";
 
 export interface WatchListParams extends QueryParams {
   watch_id?: string;
@@ -94,29 +94,29 @@ export function toggleWatchSubscribe(watchId: string, params?: WatchSubscribePar
 }
 
 export function getWatchVideoList(watchId: string, params?: WatchVideoListParams, token?: string) {
-  return requestJson<PaginatedResponse>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video`, params), token);
+  return requestJson<WatchVideoListResponse>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video`, params), token);
 }
 
 export function searchWatchVideo(watchId: string, params: WatchVideoSearchParams, token?: string) {
-  return requestJson<ApiEntity[]>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/search`, params), token);
+  return requestJson<WatchVideoSearchItem[]>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/search`, params), token);
 }
 
 export function updateWatchVideo(watchId: string, videoId: string, data: WatchVideoUpdatePayload, token?: string) {
-  return requestJson<MutationResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/${encodeURIComponent(videoId)}`, token, jsonRequestInit("POST", data));
+  return requestJson<WatchVideoCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/${encodeURIComponent(videoId)}`, token, jsonRequestInit("POST", data));
 }
 
 export function deleteWatchVideo(watchId: string, videoId: string, token?: string) {
-  return requestJson<void>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/${encodeURIComponent(videoId)}`, token, { method: "DELETE" });
+  return requestJson<WatchVideoCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/${encodeURIComponent(videoId)}`, token, { method: "DELETE" });
 }
 
 export function clearWatchVideos(watchId: string, token?: string) {
-  return requestJson<MutationResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/empty`, token, { method: "DELETE" });
+  return requestJson<WatchVideoCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/empty`, token, { method: "DELETE" });
 }
 
 export function updateWatchDynamic(watchId: string, data: WatchDynamicPayload, token?: string) {
-  return requestJson<MutationResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/dynamic`, token, jsonRequestInit("PUT", data));
+  return requestJson<WatchDynamicResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/dynamic`, token, jsonRequestInit("PUT", data));
 }
 
 export function batchUpdateWatchVideos(watchId: string, data: WatchVideoBatchItem[], token?: string) {
-  return requestJson<ApiEntity[]>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/update`, token, jsonRequestInit("POST", data));
+  return requestJson<WatchVideoBatchResultItem[]>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/update`, token, jsonRequestInit("POST", data));
 }

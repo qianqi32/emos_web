@@ -61,6 +61,72 @@ function videoTitle(video: VideoListItem | null, videoId: string) {
   return video?.video_title || video?.video_origin_title || `媒体 #${videoId}`;
 }
 
+function findMediaEpisode(media: VideoMediaItem, episodes: VideoEpisodeItem[]) {
+  const itemId = textValue(media.item_id, "") || textValue(media.video_episode_id, "");
+  return episodes.find((item) => item.item_id === itemId || String(item.episode_id) === itemId || `ve-${item.episode_id}` === itemId) || null;
+}
+
+function mediaEpisodeLabel(media: VideoMediaItem, episodes: VideoEpisodeItem[]) {
+  const episode = findMediaEpisode(media, episodes);
+
+  if (episode) {
+    const episodePrefix = `第 ${episode.episode_number} 集`;
+    return episode.episode_title ? `${episodePrefix} · ${episode.episode_title}` : episodePrefix;
+  }
+
+  const itemId = textValue(media.item_id, "") || textValue(media.video_episode_id, "");
+
+  if (itemId.startsWith("vl-")) {
+    return "电影资源";
+  }
+
+  if (itemId.startsWith("vs-")) {
+    return "季资源";
+  }
+
+  return "未匹配集数";
+}
+
+function mediaSpecTitle(media: VideoMediaItem) {
+  const title = mediaTitle(media);
+  const uploader = textValue(media.user_pseudonym, "");
+
+  if (!uploader) {
+    return title;
+  }
+
+  const suffixes = [` - ${uploader} 上传`, `-${uploader}上传`, ` ${uploader} 上传`];
+  const matchedSuffix = suffixes.find((suffix) => title.endsWith(suffix));
+
+  if (!matchedSuffix) {
+    return title;
+  }
+
+  return title.slice(0, -matchedSuffix.length).trim() || title;
+}
+
+function mediaTechnicalLine(media: VideoMediaItem) {
+  return `${mediaSpecTitle(media)} · ${media.media_status || "unknown"} · ${formatFileSize(media.media_file_size)} · 上传者 ${textValue(media.user_pseudonym)} · 字幕 ${media.subtitle_count || 0}`;
+}
+
+function tagMediaEpisode(media: VideoMediaItem, episode: VideoEpisodeItem): VideoMediaItem {
+  return {
+    ...media,
+    item_id: media.item_id ?? episode.item_id,
+    video_episode_id: media.video_episode_id ?? String(episode.episode_id),
+    video_season_id: media.video_season_id ?? String(episode.season_id)
+  };
+}
+
+function tagSubtitleEpisode(subtitle: VideoSubtitleItem, episode: VideoEpisodeItem): VideoSubtitleItem {
+  return {
+    ...subtitle,
+    item_id: subtitle.item_id ?? episode.item_id,
+    video_episode_id: subtitle.video_episode_id ?? String(episode.episode_id),
+    video_season_id: subtitle.video_season_id ?? String(episode.season_id)
+  };
+}
+
 export default function MediaDetailPage() {
   const { token } = useUserConsole();
   const params = useParams<{ id: string }>();
@@ -86,12 +152,20 @@ export default function MediaDetailPage() {
     setMessage("");
 
     try {
-      const [videoResponse, seasonResponse, episodeResponse, mediaResponse, subtitleResponse] = await Promise.all([
+      const [videoResponse, seasonResponse, episodeResponse] = await Promise.all([
         getVideoList({ video_id: videoId, page: 1, page_size: 1 }, token),
         getVideoSeasons(videoId, token),
-        getVideoEpisodes(videoId, undefined, token),
-        getMediaList({ video_list_id: videoId }, token),
-        getSubtitleList({ video_list_id: videoId }, token)
+        getVideoEpisodes(videoId, undefined, token)
+      ]);
+      const mediaEpisodes = episodeResponse.filter((episode) => (episode.medias_count || 0) > 0);
+      const subtitleEpisodes = episodeResponse.filter((episode) => (episode.subtitles_count || 0) > 0);
+      const [mediaResponse, subtitleResponse] = await Promise.all([
+        mediaEpisodes.length > 0
+          ? Promise.all(mediaEpisodes.map(async (episode) => (await getMediaList({ video_list_id: videoId, video_episode_id: String(episode.episode_id) }, token)).map((item) => tagMediaEpisode(item, episode)))).then((items) => items.flat())
+          : getMediaList({ video_list_id: videoId }, token),
+        subtitleEpisodes.length > 0
+          ? Promise.all(subtitleEpisodes.map(async (episode) => (await getSubtitleList({ video_list_id: videoId, video_episode_id: String(episode.episode_id) }, token)).map((item) => tagSubtitleEpisode(item, episode)))).then((items) => items.flat())
+          : getSubtitleList({ video_list_id: videoId }, token)
       ]);
 
       setVideo(videoResponse.items[0] || null);
@@ -106,11 +180,22 @@ export default function MediaDetailPage() {
     }
   }, [token, videoId]);
 
-  const loadResourceLists = useCallback(async () => {
-    const [mediaResponse, subtitleResponse] = await Promise.all([getMediaList({ video_list_id: videoId }, token), getSubtitleList({ video_list_id: videoId }, token)]);
+  const loadResourceLists = useCallback(async (sourceEpisodes = episodes) => {
+    const mediaEpisodes = sourceEpisodes.filter((episode) => (episode.medias_count || 0) > 0);
+    const subtitleEpisodes = sourceEpisodes.filter((episode) => (episode.subtitles_count || 0) > 0);
+
+    const [mediaResponse, subtitleResponse] = await Promise.all([
+      mediaEpisodes.length > 0
+        ? Promise.all(mediaEpisodes.map(async (episode) => (await getMediaList({ video_list_id: videoId, video_episode_id: String(episode.episode_id) }, token)).map((item) => tagMediaEpisode(item, episode)))).then((items) => items.flat())
+        : getMediaList({ video_list_id: videoId }, token),
+      subtitleEpisodes.length > 0
+        ? Promise.all(subtitleEpisodes.map(async (episode) => (await getSubtitleList({ video_list_id: videoId, video_episode_id: String(episode.episode_id) }, token)).map((item) => tagSubtitleEpisode(item, episode)))).then((items) => items.flat())
+        : getSubtitleList({ video_list_id: videoId }, token)
+    ]);
+
     setMediaItems(mediaResponse);
     setSubtitles(subtitleResponse);
-  }, [token, videoId]);
+  }, [episodes, token, videoId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -227,18 +312,18 @@ export default function MediaDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           返回媒体库
         </Link>
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-end">
-          <div className="min-w-0">
+        <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               <Film className="h-3.5 w-3.5" />
               Media Detail
             </div>
-            <h1 className="mt-3 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{videoTitle(video, videoId)}</h1>
-            <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-6 text-muted-foreground">{video?.video_description || "加载媒体基础信息、季集结构、资源与字幕管理能力。"}</p>
+            <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{videoTitle(video, videoId)}</h1>
+            <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground">{video?.video_description || "加载媒体基础信息、季集结构、资源与字幕管理能力。"}</p>
           </div>
-          <button type="button" onClick={() => void loadDetail()} disabled={status === "loading" || action !== "idle"} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border/70 px-5 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">
-            <RefreshCw className="h-4 w-4" />
-            刷新详情
+          <button type="button" onClick={() => void loadDetail()} disabled={status === "loading" || action !== "idle"} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">
+            <RefreshCw className="h-3.5 w-3.5" />
+            刷新
           </button>
         </div>
       </GlassPanel>
@@ -312,8 +397,8 @@ export default function MediaDetailPage() {
                 <div key={media.media_id} className="rounded-2xl border border-border/55 bg-background/35 p-4">
                   <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{mediaTitle(media)}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{media.media_status || "unknown"} · {formatFileSize(media.media_file_size)} · 上传者 {textValue(media.user_pseudonym)} · 字幕 {media.subtitle_count || 0}</div>
+                      <div className="text-sm font-semibold leading-6">{mediaEpisodeLabel(media, episodes)}</div>
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">{mediaTechnicalLine(media)}</div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:flex">
                       <button type="button" onClick={() => handleCopyPlayUrl(media)} disabled={action !== "idle"} className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40 disabled:opacity-50"><Copy className="h-3.5 w-3.5" />复制播放地址</button>
