@@ -1,9 +1,11 @@
 "use client";
 
-import { BookmarkPlus, Eye, EyeOff, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { BookmarkPlus, Eye, EyeOff, Plus, RefreshCw, Search, SearchCheck, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { TemporaryFileInput } from "@/components/ui/temporary-file-input";
 import { deleteWatch, getWatchList, redeemWatchSlot, saveWatch, sortWatch, toggleWatchShow, toggleWatchSubscribe } from "@/lib/api/client";
 import type { WatchListItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
@@ -22,6 +24,14 @@ interface WatchFormState {
 }
 
 type WatchTab = "all" | "mine" | "public" | "subscribed" | "free";
+type SearchMode = "name" | "author";
+
+type PendingWatchAction =
+  | { type: "delete"; item: WatchListItem }
+  | { type: "unsubscribe"; item: WatchListItem }
+  | { type: "sort"; item: WatchListItem }
+  | { type: "slot" }
+  | null;
 
 const EMPTY_FORM: WatchFormState = {
   id: null,
@@ -85,12 +95,17 @@ export default function WatchlistPage() {
   const [hasMore, setHasMore] = useState(false);
   const [tab, setTab] = useState<WatchTab>("all");
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedSearchMode, setAppliedSearchMode] = useState<SearchMode>("name");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<WatchFormState>(EMPTY_FORM);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [action, setAction] = useState("idle");
+  const [pendingAction, setPendingAction] = useState<PendingWatchAction>(null);
+  const [sortInput, setSortInput] = useState("");
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
 
   const filteredItems = useMemo(() => {
     if (tab === "mine") {
@@ -121,7 +136,8 @@ export default function WatchlistPage() {
     setMessage("");
 
     try {
-      const result = await getWatchList({ ...(appliedSearch ? { name: appliedSearch } : {}), page: pageToLoad, page_size: PAGE_SIZE }, token);
+      const searchParams = appliedSearch ? { [appliedSearchMode === "name" ? "name" : "author_username"]: appliedSearch } : {};
+      const result = await getWatchList({ ...searchParams, page: pageToLoad, page_size: PAGE_SIZE }, token);
       setItems((current) => {
         if (mode !== "append") {
           return result.items;
@@ -145,7 +161,7 @@ export default function WatchlistPage() {
     } finally {
       setAction((current) => (current === "load-more" ? "idle" : current));
     }
-  }, [appliedSearch, token]);
+  }, [appliedSearch, appliedSearchMode, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -188,16 +204,23 @@ export default function WatchlistPage() {
     setMessage("");
   }
 
-  function runAction(actionName: string, executor: () => Promise<string>) {
+  function runAction(actionName: string, executor: () => Promise<string>, options?: { dialog?: boolean }) {
     void (async () => {
       setAction(actionName);
       setMessage("");
+      setDialogError("");
 
       try {
         const result = await executor();
         setMessage(result);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "操作失败");
+        const errorMessage = error instanceof Error ? error.message : "操作失败";
+
+        if (options?.dialog) {
+          setDialogError(errorMessage);
+        } else {
+          setMessage(errorMessage);
+        }
       } finally {
         setAction("idle");
       }
@@ -239,47 +262,57 @@ export default function WatchlistPage() {
   }
 
   function handleDelete(item: WatchListItem) {
-    if (!window.confirm(`确认删除片单「${watchTitle(item)}」？`)) {
-      return;
-    }
+    setDialogError("");
+    setPendingAction({ type: "delete", item });
+  }
 
+  function submitDelete(item: WatchListItem) {
     runAction(`delete-${item.id}`, async () => {
       await deleteWatch(String(item.id), token);
+      setPendingAction(null);
       await loadItems("reset", 1);
       return "片单已删除";
-    });
+    }, { dialog: true });
   }
 
   function handleSubscribe(item: WatchListItem) {
-    if (item.is_subscribe && !window.confirm(`确认取消订阅「${watchTitle(item)}」？`)) {
+    if (item.is_subscribe) {
+      setDialogError("");
+      setPendingAction({ type: "unsubscribe", item });
       return;
     }
 
+    submitSubscribe(item);
+  }
+
+  function submitSubscribe(item: WatchListItem) {
     runAction(`subscribe-${item.id}`, async () => {
       const result = await toggleWatchSubscribe(String(item.id), { sort: item.user_sort ?? 80 }, token);
+      setPendingAction(null);
       await loadItems("reset", 1);
       return result.is_subscribe ? "片单已订阅" : "已取消订阅";
-    });
+    }, item.is_subscribe ? { dialog: true } : undefined);
   }
 
   function handleSort(item: WatchListItem) {
-    const value = window.prompt("请输入订阅排序值", String(item.user_sort ?? 80));
+    setSortInput(String(item.user_sort ?? 80));
+    setDialogError("");
+    setPendingAction({ type: "sort", item });
+  }
 
-    if (value === null) {
-      return;
-    }
-
-    const sort = Number(value);
+  function submitSort(item: WatchListItem) {
+    const sort = Number(sortInput);
     if (!Number.isFinite(sort)) {
-      setMessage("排序值必须是数字");
+      setDialogError("排序值必须是数字");
       return;
     }
 
     runAction(`sort-${item.id}`, async () => {
       await sortWatch(String(item.id), { sort }, token);
+      setPendingAction(null);
       await loadItems("reset", 1);
       return "排序已更新";
-    });
+    }, { dialog: true });
   }
 
   function handleToggleShow(item: WatchListItem) {
@@ -291,32 +324,29 @@ export default function WatchlistPage() {
   }
 
   function handleRedeemSlot() {
-    if (!window.confirm("兑换片单卡槽会立即扣除 1000 萝卜，且每天签到通常只有 2 萝卜。确认继续第一步？")) {
-      return;
-    }
+    setDialogError("");
+    setPendingAction({ type: "slot" });
+  }
 
-    const second = window.prompt("第二步确认：请输入 兑换卡槽 继续");
-    if (second !== "兑换卡槽") {
-      setMessage("已取消兑换卡槽");
-      return;
-    }
-
-    const third = window.prompt("第三步确认：请输入 1000 确认扣除 1000 萝卜");
-    if (third !== "1000") {
-      setMessage("已取消兑换卡槽");
-      return;
-    }
-
+  function submitRedeemSlot() {
     runAction("slot", async () => {
       const result = await redeemWatchSlot(token);
+      setPendingAction(null);
       setUser({ ...user, slot_remaining: result.slot_remaining });
       return `兑换成功，剩余卡槽 ${result.slot_remaining}`;
-    });
+    }, { dialog: true });
   }
 
   function handleSearch() {
     setAppliedSearch(search.trim());
+    setAppliedSearchMode(searchMode);
   }
+
+  function toggleSearchMode() {
+    setSearchMode((current) => (current === "name" ? "author" : "name"));
+  }
+
+  const searchPlaceholder = searchMode === "name" ? "按片单名称搜索" : "按作者名称搜索";
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -348,7 +378,12 @@ export default function WatchlistPage() {
             <button type="button" onClick={handleRedeemSlot} disabled={action !== "idle"} className="inline-flex h-11 items-center justify-center rounded-full border border-danger/35 px-5 text-sm font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">兑换卡槽</button>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] xl:min-w-[560px]">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { handleSearch(); } }} placeholder="按片单名称搜索" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+            <div className="relative">
+              <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { handleSearch(); } }} placeholder={searchPlaceholder} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 pr-12 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              <button type="button" onClick={toggleSearchMode} className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground" aria-label={searchMode === "name" ? "切换为按作者名称搜索" : "切换为按片单名称搜索"} title={searchMode === "name" ? "按片单名称搜索" : "按作者名称搜索"}>
+                {searchMode === "name" ? <Search className="h-4 w-4" /> : <SearchCheck className="h-4 w-4" />}
+              </button>
+            </div>
             <button type="button" onClick={handleSearch} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border/70 px-5 text-sm font-semibold transition-colors hover:bg-muted/40">
               <Search className="h-4 w-4" />
               搜索
@@ -374,7 +409,7 @@ export default function WatchlistPage() {
             <input value={form.name} onChange={(event) => updateForm("name", event.target.value)} placeholder="片单名称" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             <input value={form.point} onChange={(event) => updateForm("point", event.target.value)} placeholder="所需萝卜" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             <input value={form.tags} onChange={(event) => updateForm("tags", event.target.value)} placeholder="标签，使用英文逗号分隔" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-            <input value={form.image_poster_url} onChange={(event) => updateForm("image_poster_url", event.target.value)} placeholder="封面图 URL，可留空" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+            <TemporaryFileInput label="片单封面 URL，可手填或上传文件" value={form.image_poster_url} emosId={user.user_id} accept="image/*" onChange={(value) => updateForm("image_poster_url", value)} onMessage={setMessage} />
             <textarea value={form.description} onChange={(event) => updateForm("description", event.target.value)} placeholder="片单简介" className="min-h-28 rounded-3xl border border-border/70 bg-background/50 px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15 lg:col-span-2" />
             <div className="flex flex-wrap gap-3 lg:col-span-2">
               <label className="inline-flex h-11 items-center gap-3 rounded-full border border-border/70 px-4 text-sm text-muted-foreground">
@@ -446,6 +481,58 @@ export default function WatchlistPage() {
       <div ref={loadMoreRef} className="h-8" />
       {status === "ready" && hasMore ? <GlassPanel className="p-4 text-center text-sm text-muted-foreground">{action === "load-more" ? "正在加载更多片单..." : `已加载 ${items.length} / ${total}，继续下拉加载更多`}</GlassPanel> : null}
       {status === "ready" && !hasMore && items.length > 0 ? <GlassPanel className="p-4 text-center text-sm text-muted-foreground">已加载全部 {total} 个片单</GlassPanel> : null}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={
+          pendingAction?.type === "delete"
+            ? "确认删除片单"
+            : pendingAction?.type === "unsubscribe"
+              ? "确认取消订阅"
+              : pendingAction?.type === "sort"
+                ? "调整订阅排序"
+                : "确认兑换片单卡槽"
+        }
+        description={
+          pendingAction?.type === "delete"
+            ? `将删除片单「${watchTitle(pendingAction.item)}」。`
+            : pendingAction?.type === "unsubscribe"
+              ? `将取消订阅「${watchTitle(pendingAction.item)}」。`
+              : pendingAction?.type === "sort"
+                ? `为「${watchTitle(pendingAction.item)}」设置订阅排序值。`
+                : pendingAction?.type === "slot"
+                  ? "兑换片单卡槽会立即扣除 1000 萝卜，请确认是否继续"
+                  : undefined
+        }
+        inputLabel={pendingAction?.type === "sort" ? "订阅排序值" : undefined}
+        inputValue={pendingAction?.type === "sort" ? sortInput : undefined}
+        inputType={pendingAction?.type === "sort" ? "number" : "text"}
+        error={dialogError}
+        onInputChange={setSortInput}
+        confirmText={pendingAction?.type === "slot" ? "兑换卡槽" : undefined}
+        confirmLabel={
+          pendingAction?.type === "delete"
+            ? "删除片单"
+            : pendingAction?.type === "unsubscribe"
+              ? "取消订阅"
+              : pendingAction?.type === "slot"
+                ? "扣除 1000 萝卜"
+                : "保存排序"
+        }
+        loading={action !== "idle" && action !== "load-more"}
+        tone={pendingAction?.type === "delete" || pendingAction?.type === "slot" ? "danger" : "default"}
+        onCancel={() => { setPendingAction(null); setDialogError(""); }}
+        onConfirm={() => {
+          if (pendingAction?.type === "delete") {
+            submitDelete(pendingAction.item);
+          } else if (pendingAction?.type === "unsubscribe") {
+            submitSubscribe(pendingAction.item);
+          } else if (pendingAction?.type === "sort") {
+            submitSort(pendingAction.item);
+          } else if (pendingAction?.type === "slot") {
+            submitRedeemSlot();
+          }
+        }}
+      />
     </div>
   );
 }

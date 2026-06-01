@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "EMOS Control Console",
-  description: "EMOS 用户自助控制台"
+  description: "EMOS 用户自助控制台",
+  icons: {
+    icon: "https://raw.githubusercontent.com/somebyteorg/emos_home/refs/heads/main/public/favicon.ico"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

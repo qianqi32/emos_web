@@ -2,6 +2,7 @@
 
 import { Copy, Loader2, PartyPopper, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { cancelLottery, createLottery, getLotteryWin, stopLottery } from "@/lib/api/client";
 import type { LotteryCreatePayload, LotteryPrizePayload } from "@/lib/api/lottery";
@@ -15,6 +16,12 @@ interface PrizeFormItem {
 }
 
 const emptyPrize: PrizeFormItem = { name: "", description: "", number: "1" };
+
+type PendingLotteryAction =
+  | { type: "create"; payload: LotteryCreatePayload }
+  | { type: "cancel"; id: string }
+  | { type: "stop"; id: string }
+  | null;
 
 export function LotteryPanel() {
   const { token } = useUserConsole();
@@ -36,6 +43,7 @@ export function LotteryPanel() {
   const [queryStatus, setQueryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [queryMessage, setQueryMessage] = useState("");
   const [actionId, setActionId] = useState("");
+  const [pendingAction, setPendingAction] = useState<PendingLotteryAction>(null);
 
   function updatePrize(index: number, patch: Partial<PrizeFormItem>) {
     setPrizes((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -109,10 +117,10 @@ export function LotteryPanel() {
       prizes: preparedPrizes,
     };
 
-    if (!window.confirm(`确认创建抽奖「${payload.name}」？`)) {
-      return;
-    }
+    setPendingAction({ type: "create", payload });
+  }
 
+  async function submitCreate(payload: LotteryCreatePayload) {
     setCreating(true);
     setCreateMessage("");
     setCreatedId("");
@@ -120,6 +128,7 @@ export function LotteryPanel() {
     try {
       const result = await createLottery(payload, token);
       setCreatedId(result.lottery_id);
+      setPendingAction(null);
       setCreateMessage("抽奖创建成功");
     } catch (error) {
       setCreateMessage(error instanceof Error ? error.message : "抽奖创建失败");
@@ -153,14 +162,20 @@ export function LotteryPanel() {
   async function handleCancel() {
     const id = queryId.trim();
 
-    if (!id || !window.confirm("确认取消该抽奖？取消后参与萝卜将退回。")) {
+    if (!id) {
+      setQueryMessage("请输入抽奖 ID");
       return;
     }
 
+    setPendingAction({ type: "cancel", id });
+  }
+
+  async function submitCancel(id: string) {
     setActionId("cancel");
 
     try {
       const result = await cancelLottery(id, token);
+      setPendingAction(null);
       setQueryMessage(result.is_success ? "抽奖已取消" : "取消未成功，可能已开奖或已结束");
     } catch (error) {
       setQueryMessage(error instanceof Error ? error.message : "取消失败");
@@ -172,14 +187,20 @@ export function LotteryPanel() {
   async function handleStop() {
     const id = queryId.trim();
 
-    if (!id || !window.confirm("确认立即开奖？此操作不可撤销。")) {
+    if (!id) {
+      setQueryMessage("请输入抽奖 ID");
       return;
     }
 
+    setPendingAction({ type: "stop", id });
+  }
+
+  async function submitStop(id: string) {
     setActionId("stop");
 
     try {
       await stopLottery(id, token);
+      setPendingAction(null);
       setQueryMessage("已触发开奖");
     } catch (error) {
       setQueryMessage(error instanceof Error ? error.message : "开奖失败");
@@ -326,6 +347,45 @@ export function LotteryPanel() {
           {queryStatus !== "ready" && queryMessage ? <div className="text-sm text-muted-foreground">{queryMessage}</div> : null}
         </div>
       </GlassPanel>
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={
+          pendingAction?.type === "create"
+            ? "确认创建抽奖"
+            : pendingAction?.type === "cancel"
+              ? "确认取消抽奖"
+              : "确认立即开奖"
+        }
+        description={
+          pendingAction?.type === "create"
+            ? `将创建抽奖「${pendingAction.payload.name}」，参加需 ${pendingAction.payload.amount} 萝卜。`
+            : pendingAction?.type === "cancel"
+              ? `将取消抽奖 ${pendingAction.id}，取消后参与萝卜将退回。`
+              : pendingAction?.type === "stop"
+                ? `将对抽奖 ${pendingAction.id} 立即开奖，此操作不可撤销。`
+                : undefined
+        }
+        confirmLabel={
+          pendingAction?.type === "create"
+            ? "创建抽奖"
+            : pendingAction?.type === "cancel"
+              ? "取消抽奖"
+              : "立即开奖"
+        }
+        loading={creating || actionId !== ""}
+        tone={pendingAction?.type === "cancel" || pendingAction?.type === "stop" ? "danger" : "default"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction?.type === "create") {
+            void submitCreate(pendingAction.payload);
+          } else if (pendingAction?.type === "cancel") {
+            void submitCancel(pendingAction.id);
+          } else if (pendingAction?.type === "stop") {
+            void submitStop(pendingAction.id);
+          }
+        }}
+      />
     </div>
   );
 }

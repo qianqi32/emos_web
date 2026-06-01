@@ -2,6 +2,7 @@
 
 import { Clock, HandHeart, History, RefreshCw, Search, UploadCloud, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { applySeek, claimSeek, getSeekHistory, getSeekList, querySeek, urgeSeek } from "@/lib/api/client";
 import type { SeekHistoryItem, SeekListItem, SeekQueryResponse } from "@/lib/api/types";
@@ -12,6 +13,11 @@ const ALL_STATUSES = ["default", "upload", "complete", "cancel", "forget"];
 
 type SeekStatusFilter = "active" | "default" | "upload" | "complete" | "cancel" | "forget" | "all";
 type SeekTypeFilter = "" | "movie" | "tv";
+
+type PendingSeekAction =
+  | { type: "cancel-claim"; item: SeekListItem }
+  | { type: "urge"; item: SeekListItem }
+  | null;
 
 const STATUS_OPTIONS: { value: SeekStatusFilter; label: string }[] = [
   { value: "active", label: "进行中" },
@@ -102,6 +108,8 @@ export default function SeekPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [loadingMore, setLoadingMore] = useState(false);
   const [action, setAction] = useState("idle");
+  const [pendingAction, setPendingAction] = useState<PendingSeekAction>(null);
+  const [urgeInput, setUrgeInput] = useState("10");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -236,36 +244,38 @@ export default function SeekPage() {
   }
 
   function handleClaim(item: SeekListItem, type: "confirm" | "cancel") {
-    if (type === "cancel" && !window.confirm(`确认取消认领「${item.video_title_display}」？`)) {
+    if (type === "cancel") {
+      setPendingAction({ type: "cancel-claim", item });
       return;
     }
 
+    submitClaim(item, type);
+  }
+
+  function submitClaim(item: SeekListItem, type: "confirm" | "cancel") {
     runAction(`claim-${item.id}`, async () => {
       await claimSeek({ seek_id: item.id, type }, token);
+      setPendingAction(null);
       await loadSeeks("reset", 1);
       return type === "confirm" ? "认领成功" : "已取消认领";
     });
   }
 
   function handleUrge(item: SeekListItem) {
-    const value = window.prompt(`请输入催上片萝卜数量，范围 1 到 5000。当前总悬赏 ${item.seek_carrot} 萝卜`, "10");
+    setUrgeInput("10");
+    setPendingAction({ type: "urge", item });
+  }
 
-    if (value === null) {
-      return;
-    }
-
-    const carrot = Number(value);
+  function submitUrge(item: SeekListItem) {
+    const carrot = Number(urgeInput);
     if (!Number.isInteger(carrot) || carrot < 1 || carrot > 5000) {
       setMessage("催上片萝卜数量必须是 1 到 5000 的整数");
       return;
     }
 
-    if (!window.confirm(`确认为「${item.video_title_display}」追加 ${carrot} 萝卜悬赏？`)) {
-      return;
-    }
-
     runAction(`urge-${item.id}`, async () => {
       const result = await urgeSeek({ seek_id: item.id, carrot }, token);
+      setPendingAction(null);
       setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, seek_carrot: result.seek_carrot } : entry));
       await loadSeeks("reset", 1);
       return `催上片成功，总悬赏 ${result.seek_carrot} 萝卜`;
@@ -443,6 +453,32 @@ export default function SeekPage() {
           </div>
         </GlassPanel>
       ) : null}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction?.type === "cancel-claim" ? "确认取消认领" : "确认催上片"}
+        description={
+          pendingAction?.type === "cancel-claim"
+            ? `将取消认领「${pendingAction.item.video_title_display}」。`
+            : pendingAction?.type === "urge"
+              ? `为「${pendingAction.item.video_title_display}」追加萝卜悬赏，当前总悬赏 ${pendingAction.item.seek_carrot} 萝卜。`
+              : undefined
+        }
+        inputLabel={pendingAction?.type === "urge" ? "追加萝卜数量，范围 1 到 5000" : undefined}
+        inputValue={pendingAction?.type === "urge" ? urgeInput : undefined}
+        inputType={pendingAction?.type === "urge" ? "number" : "text"}
+        onInputChange={setUrgeInput}
+        confirmLabel={pendingAction?.type === "cancel-claim" ? "取消认领" : "追加悬赏"}
+        loading={action !== "idle"}
+        tone={pendingAction?.type === "cancel-claim" ? "danger" : "default"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction?.type === "cancel-claim") {
+            submitClaim(pendingAction.item, "cancel");
+          } else if (pendingAction?.type === "urge") {
+            submitUrge(pendingAction.item);
+          }
+        }}
+      />
     </div>
   );
 }

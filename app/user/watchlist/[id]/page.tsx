@@ -2,6 +2,7 @@
 
 import { ArrowLeft, BookmarkPlus, ExternalLink, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, use } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -24,6 +25,13 @@ function watchPoint(item: WatchListItem) {
 
 type VideoTab = "list" | "add" | "dynamic" | "batch";
 
+type PendingVideoAction =
+  | { type: "remove"; video: WatchVideoItem }
+  | { type: "clear" }
+  | { type: "dynamic-clear" }
+  | { type: "batch"; count: number; items: { type: string; value: string }[] }
+  | null;
+
 export default function WatchlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: watchId } = use(params);
   const { token } = useUserConsole();
@@ -41,6 +49,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
 
   const [tab, setTab] = useState<VideoTab>("list");
   const [action, setAction] = useState("idle");
+  const [pendingAction, setPendingAction] = useState<PendingVideoAction>(null);
   const [message, setMessage] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,9 +158,13 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
   }
 
   function handleRemoveVideo(video: WatchVideoItem) {
-    if (!window.confirm(`确认从片单移除「${video.video_title}」？`)) return;
+    setPendingAction({ type: "remove", video });
+  }
+
+  function submitRemoveVideo(video: WatchVideoItem) {
     runAction(`remove-${video.video_id}`, async () => {
       await deleteWatchVideo(watchId, String(video.video_id), token);
+      setPendingAction(null);
       setVideos((current) => current.filter((v) => v.video_id !== video.video_id));
       await loadWatch();
       return `已移除「${video.video_title}」`;
@@ -159,11 +172,13 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
   }
 
   function handleClearVideos() {
-    if (!window.confirm("确认清空片单内所有视频？此操作不可撤销。")) return;
-    const second = window.prompt("请输入 清空 确认操作");
-    if (second !== "清空") { setMessage("已取消清空"); return; }
+    setPendingAction({ type: "clear" });
+  }
+
+  function submitClearVideos() {
     runAction("clear", async () => {
       await clearWatchVideos(watchId, token);
+      setPendingAction(null);
       setVideos([]);
       setVideoTotal(0);
       await loadWatch();
@@ -201,9 +216,13 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
   }
 
   function handleDynamicClear() {
-    if (!window.confirm("确认清除动态抓取 URL？")) return;
+    setPendingAction({ type: "dynamic-clear" });
+  }
+
+  function submitDynamicClear() {
     runAction("dynamic-clear", async () => {
       await updateWatchDynamic(watchId, { url: "" }, token);
+      setPendingAction(null);
       setDynamicUrl("");
       await loadWatch();
       return "动态抓取已清除";
@@ -236,13 +255,17 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
       return;
     }
 
-    if (!window.confirm(`确认批量更新 ${items.length} 条视频？`)) return;
+    setPendingAction({ type: "batch", count: items.length, items });
+  }
+
+  function submitBatchUpdate(count: number, items: { type: string; value: string }[]) {
     runAction("batch", async () => {
       await batchUpdateWatchVideos(watchId, items, token);
+      setPendingAction(null);
       setBatchInput("");
       await loadVideos("reset", 1);
       await loadWatch();
-      return `已批量更新 ${items.length} 条视频`;
+      return `已批量更新 ${count} 条视频`;
     });
   }
 
@@ -471,6 +494,53 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
           ) : null}
         </>
       ) : null}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={
+          pendingAction?.type === "remove"
+            ? "确认移除视频"
+            : pendingAction?.type === "clear"
+              ? "确认清空片单"
+              : pendingAction?.type === "dynamic-clear"
+                ? "确认清除动态抓取"
+                : "确认批量更新"
+        }
+        description={
+          pendingAction?.type === "remove"
+            ? `将从片单移除「${pendingAction.video.video_title}」。`
+            : pendingAction?.type === "clear"
+              ? "将清空片单内所有视频，此操作不可撤销。"
+              : pendingAction?.type === "dynamic-clear"
+                ? "将清除当前片单的动态抓取 URL。"
+                : pendingAction?.type === "batch"
+                  ? `将批量更新 ${pendingAction.count} 条视频。`
+                  : undefined
+        }
+        confirmText={pendingAction?.type === "clear" ? "清空" : undefined}
+        confirmLabel={
+          pendingAction?.type === "remove"
+            ? "移除视频"
+            : pendingAction?.type === "clear"
+              ? "清空片单"
+              : pendingAction?.type === "dynamic-clear"
+                ? "清除 URL"
+                : "批量更新"
+        }
+        loading={action !== "idle" && action !== "load-more"}
+        tone={pendingAction?.type === "remove" || pendingAction?.type === "clear" ? "danger" : "default"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction?.type === "remove") {
+            submitRemoveVideo(pendingAction.video);
+          } else if (pendingAction?.type === "clear") {
+            submitClearVideos();
+          } else if (pendingAction?.type === "dynamic-clear") {
+            submitDynamicClear();
+          } else if (pendingAction?.type === "batch") {
+            submitBatchUpdate(pendingAction.count, pendingAction.items);
+          }
+        }}
+      />
     </div>
   );
 }

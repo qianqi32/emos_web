@@ -2,10 +2,16 @@
 
 import { ExternalLink, Loader2, ReceiptText, RefreshCw, WalletCards, X } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { closePayOrder, createPayOrder, queryPayOrder } from "@/lib/api/client";
 import type { PayCreateResponse, PayQueryResponse } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
+
+type PendingWalletAction =
+  | { type: "create"; amount: number; orderName: string }
+  | { type: "close"; no: string }
+  | null;
 
 function payStatusLabel(status: string) {
   if (status === "default") return "待支付";
@@ -26,7 +32,9 @@ export default function WalletPage() {
   const [queryNo, setQueryNo] = useState("");
   const [queryResult, setQueryResult] = useState<PayQueryResponse | null>(null);
   const [action, setAction] = useState("idle");
+  const [pendingAction, setPendingAction] = useState<PendingWalletAction>(null);
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
 
   async function handleCreateOrder() {
     const amount = Number.parseInt(price, 10);
@@ -42,10 +50,11 @@ export default function WalletPage() {
       return;
     }
 
-    if (!window.confirm(`确认创建 ${amount} 萝卜的网页版支付订单？`)) {
-      return;
-    }
+    setPendingAction({ type: "create", amount, orderName });
+    setDialogError("");
+  }
 
+  async function submitCreateOrder(amount: number, orderName: string) {
     setAction("create");
     setMessage("");
 
@@ -62,9 +71,10 @@ export default function WalletPage() {
       );
       setCreatedOrder(result);
       setQueryNo(result.no);
+      setPendingAction(null);
       setMessage("支付订单已创建，可打开支付页面完成付款");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "创建支付订单失败");
+      setDialogError(error instanceof Error ? error.message : "创建支付订单失败");
     } finally {
       setAction("idle");
     }
@@ -93,19 +103,21 @@ export default function WalletPage() {
   }
 
   async function handleCloseOrder(no: string) {
-    if (!window.confirm(`确认关闭支付订单 ${no}？只有未支付订单可关闭。`)) {
-      return;
-    }
+    setPendingAction({ type: "close", no });
+    setDialogError("");
+  }
 
+  async function submitCloseOrder(no: string) {
     setAction("close");
     setMessage("");
 
     try {
       const result = await closePayOrder(no, token);
       setMessage(result.is_close ? "订单已关闭" : "订单未被关闭，可能已支付或已关闭");
+      setPendingAction(null);
       await handleQueryOrder(no);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "关闭支付订单失败");
+      setDialogError(error instanceof Error ? error.message : "关闭支付订单失败");
     } finally {
       setAction("idle");
     }
@@ -275,6 +287,30 @@ export default function WalletPage() {
           ) : null}
         </GlassPanel>
       </div>
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction?.type === "create" ? "确认创建充值订单" : "确认关闭支付订单"}
+        description={
+          pendingAction?.type === "create"
+            ? `将创建 ${pendingAction.amount} 萝卜的网页版支付订单「${pendingAction.orderName}」。`
+            : pendingAction?.type === "close"
+              ? `将关闭支付订单 ${pendingAction.no}，只有未支付订单可关闭。`
+              : undefined
+        }
+        confirmLabel={pendingAction?.type === "close" ? "关闭订单" : "创建订单"}
+        error={dialogError}
+        loading={action === "create" || action === "close"}
+        tone={pendingAction?.type === "close" ? "danger" : "default"}
+        onCancel={() => { setPendingAction(null); setDialogError(""); }}
+        onConfirm={() => {
+          if (pendingAction?.type === "create") {
+            void submitCreateOrder(pendingAction.amount, pendingAction.orderName);
+          } else if (pendingAction?.type === "close") {
+            void submitCloseOrder(pendingAction.no);
+          }
+        }}
+      />
     </div>
   );
 }

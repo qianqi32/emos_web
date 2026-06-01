@@ -2,6 +2,7 @@
 
 import { Link2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { addProxyLine, deleteProxyLine, getProxyLineList } from "@/lib/api/client";
 import type { ProxyLineItem } from "@/lib/api/types";
@@ -44,6 +45,7 @@ export default function ProxyPage() {
   const [form, setForm] = useState<ProxyFormState>(EMPTY_FORM);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [action, setAction] = useState("idle");
+  const [pendingDelete, setPendingDelete] = useState<ProxyLineItem | null>(null);
   const [message, setMessage] = useState("");
 
   const selfLines = useMemo(() => lines.filter((line) => line.is_self), [lines]);
@@ -110,16 +112,17 @@ export default function ProxyPage() {
   }
 
   function handleDeleteLine(line: ProxyLineItem) {
-    if (!window.confirm(`确认删除反代线路「${lineTitle(line)}」？`)) {
-      return;
-    }
+    setPendingDelete(line);
+  }
 
+  function submitDeleteLine(line: ProxyLineItem) {
     void (async () => {
       setAction(`delete-${line.id}`);
       setMessage("");
 
       try {
         await deleteProxyLine({ id: String(line.id) }, token);
+        setPendingDelete(null);
         await loadLines();
         setMessage("线路已删除");
       } catch (error) {
@@ -211,6 +214,20 @@ export default function ProxyPage() {
           ))}
         </div>
       ) : null}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="确认删除反代线路"
+        description={pendingDelete ? `将删除反代线路「${lineTitle(pendingDelete)}」。` : undefined}
+        confirmLabel="删除线路"
+        loading={action !== "idle"}
+        tone="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) {
+            submitDeleteLine(pendingDelete);
+          }
+        }}
+      />
     </div>
   );
 }

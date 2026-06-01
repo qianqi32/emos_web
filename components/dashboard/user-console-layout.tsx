@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { UserConsoleProvider } from "@/components/dashboard/user-console-context";
 import { getUser } from "@/lib/api/client";
-import { clearStoredToken, getStoredToken } from "@/lib/auth/session";
+import { clearStoredToken, getStoredToken, saveStoredAccount, setStoredToken } from "@/lib/auth/session";
 import type { UserProfile } from "@/lib/api/types";
 
 interface UserConsoleLayoutProps {
@@ -39,6 +39,7 @@ export function UserConsoleLayout({ children }: UserConsoleLayoutProps) {
         }
 
         setUser(profile);
+        saveStoredAccount({ token: storedToken, user_id: profile.user_id, username: profile.username, avatar: profile.avatar });
         setStatus("ready");
       } catch {
         if (!isMounted) {
@@ -57,6 +58,13 @@ export function UserConsoleLayout({ children }: UserConsoleLayoutProps) {
     };
   }, [router]);
 
+  function handleSwitchAccount(nextToken: string, nextUser: UserProfile) {
+    setStoredToken(nextToken);
+    saveStoredAccount({ token: nextToken, user_id: nextUser.user_id, username: nextUser.username, avatar: nextUser.avatar });
+    setToken(nextToken);
+    setUser(nextUser);
+  }
+
   function handleLogout() {
     clearStoredToken();
     setToken("");
@@ -73,7 +81,7 @@ export function UserConsoleLayout({ children }: UserConsoleLayoutProps) {
   }
 
   return (
-    <UserConsoleProvider value={{ token, user, setUser, logout: handleLogout }}>
+    <UserConsoleProvider value={{ token, user, setUser, switchAccount: handleSwitchAccount, logout: handleLogout }}>
       <DashboardShell user={user} onLogout={handleLogout}>
         {children}
       </DashboardShell>

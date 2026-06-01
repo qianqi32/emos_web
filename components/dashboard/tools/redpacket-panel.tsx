@@ -2,11 +2,25 @@
 
 import { Copy, Gift, Loader2, Search } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { TemporaryFileInput } from "@/components/ui/temporary-file-input";
 import { createRedPacket, getRedPacketReceive } from "@/lib/api/client";
 import type { RedPacketCreatePayload } from "@/lib/api/redpacket";
 import type { RedPacketReceiveItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
+
+function inferFileType(url: string, uploadedFileType: string) {
+  if (uploadedFileType) {
+    return uploadedFileType;
+  }
+
+  const lower = url.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|$)/.test(lower)) return "image";
+  if (/\.(mp3|m4a|aac|wav|ogg|flac)(\?|#|$)/.test(lower)) return "audio";
+  if (/\.(mp4|m4v|mov|webm|mkv)(\?|#|$)/.test(lower)) return "video";
+  return "file";
+}
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -14,15 +28,18 @@ function formatDateTime(value: string) {
 }
 
 export function RedPacketPanel() {
-  const { token } = useUserConsole();
+  const { token, user } = useUserConsole();
   const [type, setType] = useState<"default" | "password">("default");
   const [receive, setReceive] = useState<"average" | "random">("average");
   const [carrot, setCarrot] = useState("");
   const [number, setNumber] = useState("");
   const [blessing, setBlessing] = useState("恭喜发财");
   const [text, setText] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileType, setFileType] = useState("");
   const [seconds, setSeconds] = useState("86400");
   const [creating, setCreating] = useState(false);
+  const [pendingCreate, setPendingCreate] = useState<RedPacketCreatePayload | null>(null);
   const [createMessage, setCreateMessage] = useState("");
   const [createdId, setCreatedId] = useState("");
 
@@ -61,10 +78,6 @@ export function RedPacketPanel() {
       return;
     }
 
-    if (!window.confirm(`确认发出 ${carrotValue} 萝卜的红包？发出后将从余额扣除。`)) {
-      return;
-    }
-
     const payload: RedPacketCreatePayload = {
       type,
       receive,
@@ -72,12 +85,16 @@ export function RedPacketPanel() {
       number: numberValue,
       blessing: blessing.trim(),
       text: type === "password" ? text.trim() : null,
-      file_url: null,
-      file_type: null,
+      file_url: fileUrl.trim() || null,
+      file_type: fileUrl.trim() ? inferFileType(fileUrl.trim(), fileType) : null,
       is_exclusive: false,
       seconds: secondsValue,
     };
 
+    setPendingCreate(payload);
+  }
+
+  async function submitCreate(payload: RedPacketCreatePayload) {
     setCreating(true);
     setCreateMessage("");
     setCreatedId("");
@@ -85,6 +102,7 @@ export function RedPacketPanel() {
     try {
       const result = await createRedPacket(payload, token);
       setCreatedId(result.red_packet_id);
+      setPendingCreate(null);
       setCreateMessage("红包创建成功");
     } catch (error) {
       setCreateMessage(error instanceof Error ? error.message : "红包创建失败");
@@ -174,6 +192,7 @@ export function RedPacketPanel() {
             <span className="text-xs text-muted-foreground">有效时长（秒，60-172800）</span>
             <input value={seconds} onChange={(event) => setSeconds(event.target.value)} type="number" min={60} max={172800} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
           </label>
+          <TemporaryFileInput label="红包资源 URL，可手填或上传文件" value={fileUrl} emosId={user.user_id} accept="image/*,audio/*,video/*" onChange={(value) => { setFileUrl(value); setFileType(""); }} onUploadedFileType={setFileType} onMessage={setCreateMessage} />
           <button type="button" onClick={handleCreate} disabled={creating} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
             {creating ? "创建中" : "发红包"}
@@ -218,6 +237,25 @@ export function RedPacketPanel() {
           ))}
         </div>
       </GlassPanel>
+
+      <ConfirmDialog
+        open={pendingCreate !== null}
+        title="确认发红包"
+        description={
+          pendingCreate
+            ? `将发出 ${pendingCreate.carrot} 萝卜的${pendingCreate.type === "password" ? "口令" : "普通"}红包，共 ${pendingCreate.number} 个名额，发出后将从余额扣除。`
+            : undefined
+        }
+        confirmLabel="确认发出"
+        loading={creating}
+        tone="danger"
+        onCancel={() => setPendingCreate(null)}
+        onConfirm={() => {
+          if (pendingCreate) {
+            void submitCreate(pendingCreate);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Copy, Film, ListTree, RefreshCw, Subtitles, Trash2 } from "l
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { deleteMedia, deleteSubtitle, getMediaList, getMediaPlayUrl, getSubtitleList, getVideoEpisodes, getVideoList, getVideoSeasons, moveMedia, renameMedia, renameSubtitle } from "@/lib/api/client";
 import type { VideoEpisodeItem, VideoListItem, VideoMediaItem, VideoSeasonItem, VideoSubtitleItem } from "@/lib/api/types";
@@ -127,6 +128,14 @@ function tagSubtitleEpisode(subtitle: VideoSubtitleItem, episode: VideoEpisodeIt
   };
 }
 
+type PendingMediaAction =
+  | { type: "rename-media"; media: VideoMediaItem }
+  | { type: "move-media"; media: VideoMediaItem }
+  | { type: "delete-media"; media: VideoMediaItem }
+  | { type: "rename-subtitle"; subtitle: VideoSubtitleItem }
+  | { type: "delete-subtitle"; subtitle: VideoSubtitleItem }
+  | null;
+
 export default function MediaDetailPage() {
   const { token } = useUserConsole();
   const params = useParams<{ id: string }>();
@@ -140,6 +149,8 @@ export default function MediaDetailPage() {
   const [selectedEpisode, setSelectedEpisode] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [action, setAction] = useState("idle");
+  const [pendingAction, setPendingAction] = useState<PendingMediaAction>(null);
+  const [dialogInput, setDialogInput] = useState("");
   const [message, setMessage] = useState("");
 
   const selectedSeasonItem = useMemo(() => seasons.find((item) => String(item.season_number) === selectedSeason) || null, [seasons, selectedSeason]);
@@ -225,12 +236,17 @@ export default function MediaDetailPage() {
     runAction(`play-${media.media_id}`, async () => {
       const result = await getMediaPlayUrl({ media_id: media.media_id }, token);
       await navigator.clipboard.writeText(result.url);
-      return "播放地址已复制，第三方播放地址请自行妥善使用";
+      return "播放地址已复制，本次获取可能会按直连/反代规则扣除萝卜，请留意萝卜记录";
     });
   }
 
   function handleRenameMedia(media: VideoMediaItem) {
-    const nextName = window.prompt("请输入新的资源名称", mediaTitle(media))?.trim();
+    setDialogInput(mediaTitle(media));
+    setPendingAction({ type: "rename-media", media });
+  }
+
+  function submitRenameMedia(media: VideoMediaItem) {
+    const nextName = dialogInput.trim();
 
     if (!nextName) {
       setMessage("资源名称不能为空");
@@ -239,13 +255,19 @@ export default function MediaDetailPage() {
 
     runAction(`rename-media-${media.media_id}`, async () => {
       await renameMedia({ media_id: media.media_id, name: nextName }, token);
+      setPendingAction(null);
       await loadResourceLists();
       return "资源已重命名";
     });
   }
 
   function handleMoveMedia(media: VideoMediaItem) {
-    const targetItemId = window.prompt("请输入目标项目 ID，例如 vl-1、vs-2 或 ve-3")?.trim();
+    setDialogInput("");
+    setPendingAction({ type: "move-media", media });
+  }
+
+  function submitMoveMedia(media: VideoMediaItem) {
+    const targetItemId = dialogInput.trim();
 
     if (!targetItemId) {
       setMessage("目标项目 ID 不能为空");
@@ -261,25 +283,32 @@ export default function MediaDetailPage() {
 
     runAction(`move-media-${media.media_id}`, async () => {
       await moveMedia({ media_id: media.media_id, item_type: itemType, item_id: targetItemId }, token);
+      setPendingAction(null);
       await loadResourceLists();
       return "资源已移动";
     });
   }
 
   function handleDeleteMedia(media: VideoMediaItem) {
-    if (!window.confirm(`确认删除资源「${mediaTitle(media)}」？`)) {
-      return;
-    }
+    setPendingAction({ type: "delete-media", media });
+  }
 
+  function submitDeleteMedia(media: VideoMediaItem) {
     runAction(`delete-media-${media.media_id}`, async () => {
       await deleteMedia({ media_id: media.media_id, reason: null }, token);
+      setPendingAction(null);
       await loadResourceLists();
       return "资源已删除";
     });
   }
 
   function handleRenameSubtitle(subtitle: VideoSubtitleItem) {
-    const nextTitle = window.prompt("请输入新的字幕标题", subtitleTitle(subtitle))?.trim();
+    setDialogInput(subtitleTitle(subtitle));
+    setPendingAction({ type: "rename-subtitle", subtitle });
+  }
+
+  function submitRenameSubtitle(subtitle: VideoSubtitleItem) {
+    const nextTitle = dialogInput.trim();
 
     if (!nextTitle) {
       setMessage("字幕标题不能为空");
@@ -288,18 +317,20 @@ export default function MediaDetailPage() {
 
     runAction(`rename-subtitle-${subtitle.subtitle_id}`, async () => {
       await renameSubtitle({ subtitle_id: subtitle.subtitle_id, title: nextTitle }, token);
+      setPendingAction(null);
       await loadResourceLists();
       return "字幕已重命名";
     });
   }
 
   function handleDeleteSubtitle(subtitle: VideoSubtitleItem) {
-    if (!window.confirm(`确认删除字幕「${subtitleTitle(subtitle)}」？`)) {
-      return;
-    }
+    setPendingAction({ type: "delete-subtitle", subtitle });
+  }
 
+  function submitDeleteSubtitle(subtitle: VideoSubtitleItem) {
     runAction(`delete-subtitle-${subtitle.subtitle_id}`, async () => {
       await deleteSubtitle({ subtitle_id: subtitle.subtitle_id, reason: null }, token);
+      setPendingAction(null);
       await loadResourceLists();
       return "字幕已删除";
     });
@@ -388,7 +419,7 @@ export default function MediaDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold">资源列表</div>
-                <p className="mt-1 text-sm text-muted-foreground">播放地址只复制到剪贴板，不自动打开外链。</p>
+                <p className="mt-1 text-sm text-muted-foreground">播放地址只复制到剪贴板，不自动打开外链；获取地址可能按直连/反代规则扣除萝卜。</p>
               </div>
               <div className="text-xs text-muted-foreground">{filteredMediaItems.length} 项</div>
             </div>
@@ -441,6 +472,70 @@ export default function MediaDetailPage() {
           </GlassPanel>
         </>
       ) : null}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={
+          pendingAction?.type === "rename-media"
+            ? "重命名资源"
+            : pendingAction?.type === "move-media"
+              ? "移动资源"
+              : pendingAction?.type === "delete-media"
+                ? "确认删除资源"
+                : pendingAction?.type === "rename-subtitle"
+                  ? "重命名字幕"
+                  : "确认删除字幕"
+        }
+        description={
+          pendingAction?.type === "rename-media"
+            ? `为资源「${mediaTitle(pendingAction.media)}」设置新的名称。`
+            : pendingAction?.type === "move-media"
+              ? `将资源「${mediaTitle(pendingAction.media)}」移动到目标项目。`
+              : pendingAction?.type === "delete-media"
+                ? `将删除资源「${mediaTitle(pendingAction.media)}」。`
+                : pendingAction?.type === "rename-subtitle"
+                  ? `为字幕「${subtitleTitle(pendingAction.subtitle)}」设置新的标题。`
+                  : pendingAction?.type === "delete-subtitle"
+                    ? `将删除字幕「${subtitleTitle(pendingAction.subtitle)}」。`
+                    : undefined
+        }
+        inputLabel={
+          pendingAction?.type === "rename-media"
+            ? "资源名称"
+            : pendingAction?.type === "move-media"
+              ? "目标项目 ID，例如 vl-1、vs-2 或 ve-3"
+              : pendingAction?.type === "rename-subtitle"
+                ? "字幕标题"
+                : undefined
+        }
+        inputValue={pendingAction?.type === "rename-media" || pendingAction?.type === "move-media" || pendingAction?.type === "rename-subtitle" ? dialogInput : undefined}
+        inputPlaceholder={pendingAction?.type === "move-media" ? "ve-1" : undefined}
+        onInputChange={setDialogInput}
+        confirmLabel={
+          pendingAction?.type === "rename-media" || pendingAction?.type === "rename-subtitle"
+            ? "保存名称"
+            : pendingAction?.type === "move-media"
+              ? "移动资源"
+              : pendingAction?.type === "delete-media"
+                ? "删除资源"
+                : "删除字幕"
+        }
+        loading={action !== "idle"}
+        tone={pendingAction?.type === "delete-media" || pendingAction?.type === "delete-subtitle" ? "danger" : "default"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction?.type === "rename-media") {
+            submitRenameMedia(pendingAction.media);
+          } else if (pendingAction?.type === "move-media") {
+            submitMoveMedia(pendingAction.media);
+          } else if (pendingAction?.type === "delete-media") {
+            submitDeleteMedia(pendingAction.media);
+          } else if (pendingAction?.type === "rename-subtitle") {
+            submitRenameSubtitle(pendingAction.subtitle);
+          } else if (pendingAction?.type === "delete-subtitle") {
+            submitDeleteSubtitle(pendingAction.subtitle);
+          }
+        }}
+      />
     </div>
   );
 }

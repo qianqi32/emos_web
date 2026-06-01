@@ -4,6 +4,7 @@ import type {
   TransferCarrotResponse,
   RankCarrotItem,
   RankPlayingItem,
+  RankPlayingLiveItem,
   RankSignItem,
   RankUploadItem,
 } from "@/lib/api/types";
@@ -28,6 +29,10 @@ export function getRankUpload(token?: string) {
 
 export function getRankPlaying(token?: string) {
   return requestJson<RankPlayingItem[]>("/api/emos/api/rank/userVideoRecordPlaying", token);
+}
+
+export function getRankPlayingLive(token?: string) {
+  return requestJson<RankPlayingLiveItem[]>("/api/emos/api/rank/userLiveRecordPlaying", token);
 }
 
 export function getRankSign(token?: string) {

@@ -24,9 +24,18 @@
 | **服务管理** | 展示 Video、Live、Music 等服务地址，并提供一键复制 |
 | **邀请管理** | 支持邀请信息、邀请历史分页搜索、邀请用户与撤销邀请 |
 | **媒体库** | 支持影视列表、直播频道、音乐服务入口、标题搜索、类型筛选、资源状态筛选与无限下拉浏览 |
+| **媒体详情** | 支持季集结构、媒体资源、字幕列表、播放地址、移动、重命名与删除等管理操作 |
+| **上传管理** | 支持视频与字幕上传、自动匹配、上传队列和保存结果 |
+| **片单管理** | 支持片单列表、搜索、创建、编辑、删除、订阅、排序、显示状态与片单详情管理 |
+| **反代管理** | 支持反代线路列表、只看自己、添加与删除 |
 | **求片管理** | 支持求片列表、筛选、求片/取消求片、认领、催上片、详情与历史查询 |
-| **社区工具** | 萝卜榜、上传榜、正在看榜、签到榜、萝卜记录、转赠萝卜 |
-| **路由化控制台** | `/user` 下拆分仪表盘、用户信息、媒体、上传、片单、反代、求片、邀请、社区页面 |
+| **商城管理** | 支持商品浏览、商品详情、下单、订单查询、萝卜支付、关闭订单与催发货 |
+| **充值管理** | 支持网页版支付订单创建、支付页跳转、订单查询与关闭 |
+| **观影历史** | 支持播放记录分页浏览、电影/剧集筛选、标记完成与删除记录 |
+| **直播入口** | `/user/live` 跳转到媒体库直播频道，直播 API 已封装直播库、直播列表与直播媒体读取 |
+| **修仙境界** | 根据萝卜余额展示当前境界、进度、下一境界与完整境界体系 |
+| **社区工具** | 萝卜榜、上传榜、正在看榜、签到榜、萝卜记录、转赠萝卜、红包、抽奖、投票与播放记录工具入口 |
+| **路由化控制台** | `/user` 下按一级功能域组织仪表盘、用户信息、媒体、上传、片单、反代、求片、商城、充值、社区等入口；直播、邀请、历史、境界等页面作为对应功能区的二级入口 |
 | **移动端适配** | 桌面端侧边栏，移动端使用顶部入口 + 底部抽屉导航 |
 | **主题系统** | 支持 Light / Dark / System 明暗模式切换 |
 | **Serverless Proxy** | 使用 Next.js Route Handler 代理 EMOS API，适配 Vercel / Cloudflare / EdgeOne Pages |
@@ -42,14 +51,18 @@
 | `/user/profile` | 用户信息、账号操作与视频服登录设备管理 | ✅ |
 | `/user/media` | 媒体库列表、直播频道、搜索、筛选与无限下拉 | ✅ |
 | `/user/media/[id]` | 媒体详情、季集结构、资源与字幕管理 | ✅ |
+| `/user/live` | 直播入口，重定向到媒体库直播频道 | ✅ |
 | `/user/upload` | 视频与字幕上传、自动匹配、上传队列和保存结果 | ✅ |
 | `/user/watchlist` | 片单列表、搜索、创建、编辑、删除、订阅、排序与显示状态切换 | ✅ |
+| `/user/watchlist/[id]` | 片单详情、视频列表、添加视频、动态 URL 与批量更新 | ✅ |
 | `/user/proxy` | 反代线路列表、只看自己、添加与删除 | ✅ |
 | `/user/seek` | 求片列表、筛选、求片、认领、催上片、详情与历史 | ✅ |
-| `/user/shop` | 店铺商品浏览、下单、萝卜支付与我的订单 | ✅ |
-| `/user/wallet` | 萝卜充值支付订单创建、查询与关闭 | ✅ |
+| `/user/shop` | 店铺商品浏览、下单、萝卜支付、订单查询、关闭订单与催发货 | ✅ |
+| `/user/wallet` | 萝卜充值支付订单创建、支付页跳转、查询与关闭 | ✅ |
 | `/user/invite` | 邀请信息、邀请历史搜索、邀请用户与撤销邀请 | ✅ |
-| `/user/community` | 排行榜、萝卜记录、转赠萝卜 | ✅ |
+| `/user/community` | 排行榜、萝卜记录与社区工具入口 | ✅ |
+| `/user/history` | 观影历史、电影/剧集筛选、标记完成与删除记录 | ✅ |
+| `/user/realm` | 修仙境界、萝卜进度与境界体系展示 | ✅ |
 
 > 控制台路由目前采用客户端 Token 恢复与保护。未登录访问 `/user` 会返回登录页。
 
@@ -127,12 +140,18 @@ emos_web/
 │       ├── profile/page.tsx        # 用户信息、账号操作与视频服登录设备管理
 │       ├── media/page.tsx          # 媒体库列表、直播频道、搜索、筛选与无限下拉
 │       ├── media/[id]/page.tsx     # 媒体详情、季集结构、资源与字幕管理
+│       ├── live/page.tsx           # 直播入口，重定向到媒体库直播频道
 │       ├── upload/page.tsx         # 视频与字幕上传、自动匹配、上传队列和保存结果
 │       ├── watchlist/page.tsx      # 片单列表、创建、编辑、订阅与排序
+│       ├── watchlist/[id]/page.tsx # 片单详情、视频管理、动态 URL 与批量更新
 │       ├── proxy/page.tsx          # 反代线路列表、只看自己、添加与删除
 │       ├── seek/page.tsx           # 求片列表、筛选、认领、催上片与历史
+│       ├── shop/page.tsx           # 商城商品浏览、下单与订单管理
+│       ├── wallet/page.tsx         # 萝卜充值支付订单创建、查询与关闭
 │       ├── invite/page.tsx         # 邀请管理页
-│       └── community/page.tsx      # 排行榜、萝卜记录、转赠萝卜
+│       ├── community/page.tsx      # 排行榜、萝卜记录与社区工具入口
+│       ├── history/page.tsx        # 观影历史、筛选、标记完成与删除记录
+│       └── realm/page.tsx          # 修仙境界与境界体系展示
 ├── components/
 │   ├── dashboard/                  # 控制台 Shell、导航、用户中心与仪表盘卡片
 │   ├── ui/                         # 玻璃面板、状态徽章、指标卡片等基础组件
@@ -143,8 +162,8 @@ emos_web/
 │   ├── api/                        # EMOS API 客户端、类型与请求封装
 │   ├── auth/session.ts             # Token 本地存储与授权回调解析
 │   └── utils.ts                    # 通用工具函数
-├── emos_api.md                     # EMOS API 参考文档
-├── check-cx ui.md                  # 视觉风格参考
+├── docs/
+│   └── EMOS Web 功能补齐与治理计划.md # 功能补齐、信息架构与治理计划
 ├── next.config.ts                  # Next.js 配置
 └── package.json
 ```
@@ -248,6 +267,13 @@ EMOS_API_BASE_URL=https://api.emos.best
 | 求片 | `POST /api/seek`、`GET /api/seek/poll`、`PUT /api/seek/apply`、`GET /api/seek/query`、`GET /api/seek/history`、`PUT /api/seek/claim`、`PUT /api/seek/urge` |
 | 排行榜 | `GET /api/rank/carrot`、`GET /api/rank/upload`、`GET /api/rank/userVideoRecordPlaying`、`GET /api/rank/sign` |
 | 萝卜 | `GET /api/carrot/history`、`PUT /api/carrot/transfer` |
+| 红包 | `POST /api/redPacket/create`、`GET /api/redPacket/receive` |
+| 抽奖 | `POST /api/lottery/create`、`GET /api/lottery/win`、`PUT /api/lottery/cancel`、`PUT /api/lottery/stop` |
+| 投票 | `POST /api/telegram/vote/create`、`GET /api/telegram/vote/result` |
+| 直播 | `GET /api/live/library`、`GET /api/live/list`、`GET /api/live/media` |
+| 商城 | `GET /api/shop/seller/base`、`GET /api/shop/category/list`、`GET /api/shop/product/list`、`GET /api/shop/product/info`、`POST /api/shop/order/user/create`、`POST /api/shop/order/user/pay`、`GET /api/shop/order/user/list`、`PUT /api/shop/order/user/urge`、`POST /api/shop/order/user/close`、`DELETE /api/shop/order/user/order` |
+| 支付 | `POST /api/pay/create`、`GET /api/pay/query`、`PUT /api/pay/close` |
+| 观影记录 | `GET /api/video/record/list`、`PUT /api/video/record/change` |
 
 所有请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。分页响应统一读取文档约定的 `items / total / page / page_size`。
 
@@ -257,7 +283,7 @@ EMOS_API_BASE_URL=https://api.emos.best
 
 ## 🎨 设计方向
 
-本项目视觉风格参考 `check-cx ui.md`：
+本项目视觉方向：
 
 - 工程终端感的信息层级
 - 克制的语义状态色

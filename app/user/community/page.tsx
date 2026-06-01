@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, Loader2, Trophy, Play, Calendar, Coins } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -7,6 +8,7 @@ import {
   getRankCarrot,
   getRankUpload,
   getRankPlaying,
+  getRankPlayingLive,
   getRankSign,
   getCarrotHistory,
 } from "@/lib/api/client";
@@ -14,13 +16,14 @@ import type {
   RankCarrotItem,
   RankUploadItem,
   RankPlayingItem,
+  RankPlayingLiveItem,
   RankSignItem,
   CarrotHistoryItem,
 } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
 type TabType = "ranks" | "carrot";
-type RankTabType = "carrot" | "upload" | "playing" | "sign";
+type RankTabType = "carrot" | "upload" | "playing" | "playing-live" | "sign";
 
 function formatSize(size: number) {
   if (size === 0) return "0 B";
@@ -49,7 +52,8 @@ function getRankIcon(index: number) {
 
 export default function CommunityPage() {
   const { token, user } = useUserConsole();
-  const [activeTab, setActiveTab] = useState<TabType>("ranks");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabType>(searchParams.get("tab") === "carrot" ? "carrot" : "ranks");
   const [activeRankTab, setActiveRankTab] = useState<RankTabType>("carrot");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +61,7 @@ export default function CommunityPage() {
   const [carrotRank, setCarrotRank] = useState<RankCarrotItem[]>([]);
   const [uploadRank, setUploadRank] = useState<RankUploadItem[]>([]);
   const [playingRank, setPlayingRank] = useState<RankPlayingItem[]>([]);
+  const [playingLiveRank, setPlayingLiveRank] = useState<RankPlayingLiveItem[]>([]);
   const [signRank, setSignRank] = useState<RankSignItem[]>([]);
   const [carrotHistory, setCarrotHistory] = useState<CarrotHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -76,6 +81,9 @@ export default function CommunityPage() {
       } else if (activeRankTab === "playing") {
         const data = await getRankPlaying(token);
         setPlayingRank(data);
+      } else if (activeRankTab === "playing-live") {
+        const data = await getRankPlayingLive(token);
+        setPlayingLiveRank(data);
       } else if (activeRankTab === "sign") {
         const data = await getRankSign(token);
         setSignRank(data);
@@ -210,6 +218,7 @@ export default function CommunityPage() {
                 { key: "carrot", label: "萝卜榜", icon: Coins },
                 { key: "upload", label: "上传榜", icon: ArrowUpRight },
                 { key: "playing", label: "正在看", icon: Play },
+                { key: "playing-live", label: "直播榜", icon: Play },
                 { key: "sign", label: "签到榜", icon: Calendar },
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -234,7 +243,7 @@ export default function CommunityPage() {
           </GlassPanel>
 
           <GlassPanel>
-            {loading && carrotRank.length === 0 && uploadRank.length === 0 && playingRank.length === 0 && signRank.length === 0 ? (
+            {loading && carrotRank.length === 0 && uploadRank.length === 0 && playingRank.length === 0 && playingLiveRank.length === 0 && signRank.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
@@ -306,11 +315,33 @@ export default function CommunityPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-muted-foreground">
-                        {item.upload_pseudonym}
+                        {item.upload_pseudonym || item.username || "未知用户"}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {item.play_speed / 10}x
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {activeRankTab === "playing-live" && playingLiveRank.length > 0 ? (
+              <div className="space-y-2">
+                {playingLiveRank.map((item, index) => (
+                  <div
+                    key={`${item.live_title}-${item.username}-${index}`}
+                    className="flex items-center gap-4 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 transition-colors hover:bg-muted/20"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/30 text-lg font-bold">
+                      <Play className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{item.live_title}</div>
+                      <div className="text-xs text-muted-foreground">直播</div>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      {item.username || "未知用户"}
                     </div>
                   </div>
                 ))}
@@ -350,6 +381,7 @@ export default function CommunityPage() {
               ((activeRankTab === "carrot" && carrotRank.length === 0) ||
                 (activeRankTab === "upload" && uploadRank.length === 0) ||
                 (activeRankTab === "playing" && playingRank.length === 0) ||
+                (activeRankTab === "playing-live" && playingLiveRank.length === 0) ||
                 (activeRankTab === "sign" && signRank.length === 0)) ? (
               <div className="py-12 text-center text-muted-foreground">
                 暂无数据

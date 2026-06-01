@@ -451,7 +451,13 @@ export interface RankPlayingItem {
   episode_number: number | null;
   play_speed: number;
   upload_pseudonym: string;
+  username?: string;
   ua: string;
+}
+
+export interface RankPlayingLiveItem {
+  live_title: string;
+  username: string;
 }
 
 export interface RankSignItem {
@@ -559,6 +565,33 @@ export interface RecordRequestItem {
 
 export type RecordRequestResponse = PaginatedResponse<RecordRequestItem>;
 
+export interface RecordListItem {
+  video_id: number;
+  video_title: string;
+  video_type: string;
+  todb_id: number;
+  tmdb_id: number;
+  video_image_logo: string | null;
+  video_image_poster: string | null;
+  video_image_backdrop: string | null;
+  season_number: number | null;
+  episode_number: number | null;
+  episode_image_poster: string | null;
+  media_id: string;
+  media_name: string;
+  media_seconds: number;
+  play_seconds: number;
+  play_ua: string;
+  is_complete: boolean;
+  time: string;
+}
+
+export type RecordListResponse = PaginatedResponse<RecordListItem>;
+
+export interface RecordChangeResponse {
+  count: number;
+}
+
 export interface LiveLibrary {
   id: number;
   title: string;
@@ -602,6 +635,31 @@ export interface ShopSellerBase {
   description: string;
   status: string;
   is_self: boolean;
+}
+
+export interface ShopSellerMutationResponse extends MutationResponse {
+  seller_id?: number;
+  status?: string;
+}
+
+export interface ShopCategoryMutationResponse extends MutationResponse {
+  category_id?: number;
+  sort?: number;
+}
+
+export interface ShopProductMutationResponse extends MutationResponse {
+  product_id?: number;
+  is_up?: boolean;
+  category_id?: number;
+  sort?: number;
+}
+
+export interface ShopOrderDeliveryResponse extends MutationResponse {
+  is_delivery?: boolean;
+}
+
+export interface ShopOrderRemarkResponse extends MutationResponse {
+  remark?: string;
 }
 
 export interface ShopCategory {

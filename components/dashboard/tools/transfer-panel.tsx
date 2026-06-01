@@ -2,6 +2,7 @@
 
 import { Loader2, Send } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { getUser, transferCarrot } from "@/lib/api/client";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
@@ -10,6 +11,7 @@ export function TransferPanel() {
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingTransfer, setPendingTransfer] = useState<{ userId: string; amount: number } | null>(null);
   const [message, setMessage] = useState("");
 
   async function handleTransfer() {
@@ -26,21 +28,17 @@ export function TransferPanel() {
       return;
     }
 
-    if (!window.confirm(`确认向用户 ${trimmedId} 转赠 ${parsedAmount} 萝卜？转赠后不可撤回。`)) {
-      return;
-    }
+    setPendingTransfer({ userId: trimmedId, amount: parsedAmount });
+  }
 
-    if (window.prompt("请输入「确认」继续转赠") !== "确认") {
-      setMessage("已取消转赠");
-      return;
-    }
-
+  async function submitTransfer(targetUserId: string, carrotAmount: number) {
     setLoading(true);
     setMessage("");
 
     try {
-      const result = await transferCarrot({ user_id: trimmedId, carrot: parsedAmount }, token);
+      const result = await transferCarrot({ user_id: targetUserId, carrot: carrotAmount }, token);
       setMessage(`转赠成功，剩余萝卜 ${result.carrot}`);
+      setPendingTransfer(null);
       setUserId("");
       setAmount("");
 
@@ -97,6 +95,22 @@ export function TransferPanel() {
       </div>
 
       {message ? <div className="rounded-2xl border border-border/50 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">{message}</div> : null}
+
+      <ConfirmDialog
+        open={pendingTransfer !== null}
+        title="确认转赠萝卜"
+        description={pendingTransfer ? `将向用户 ${pendingTransfer.userId} 转赠 ${pendingTransfer.amount} 萝卜，转赠后不可撤回。` : undefined}
+        confirmLabel="确认转赠"
+        confirmText="确认"
+        loading={loading}
+        tone="danger"
+        onCancel={() => setPendingTransfer(null)}
+        onConfirm={() => {
+          if (pendingTransfer) {
+            void submitTransfer(pendingTransfer.userId, pendingTransfer.amount);
+          }
+        }}
+      />
     </div>
   );
 }

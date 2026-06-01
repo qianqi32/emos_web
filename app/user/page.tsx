@@ -14,7 +14,7 @@ export default function UserHomePage() {
   const { token, user, setUser } = useUserConsole();
   const statusCards = useMemo(
     () => [
-      { label: "Carrot", value: String(user.carrot), helper: "当前萝卜余额" },
+      { label: "Carrot", value: String(user.carrot), helper: "当前萝卜余额", href: "/user/community?tab=carrot" },
       { label: "Upload", value: formatBytes(user.size_upload), helper: user.is_can_upload ? "允许上传" : "暂无上传权限" },
       { label: "Invite", value: String(user.invite_remaining), helper: "剩余邀请名额" },
       { label: "Watchlist", value: String(user.slot_remaining), helper: "剩余片单卡槽" }
@@ -27,7 +27,7 @@ export default function UserHomePage() {
       <UserHero token={token} user={user} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
-        {statusCards.map((card) => <MetricCard key={card.label} label={card.label} value={card.value} helper={card.helper} />)}
+        {statusCards.map((card) => <MetricCard key={card.label} label={card.label} value={card.value} helper={card.helper} href={card.href} />)}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr] xl:gap-5">

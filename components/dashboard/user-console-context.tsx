@@ -7,6 +7,7 @@ interface UserConsoleContextValue {
   token: string;
   user: UserProfile;
   setUser: (user: UserProfile) => void;
+  switchAccount: (token: string, user: UserProfile) => void;
   logout: () => void;
 }
 
