@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Loader2, Package, ReceiptText, RefreshCw, Search, ShoppingBag, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -1057,12 +1058,13 @@ export default function ShopPage() {
             <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 text-sm text-muted-foreground">
               <div>店铺 ID：<span className="font-mono text-foreground">{sellerSelf?.seller_id ?? "未申请"}</span></div>
               <div className="mt-2">状态：<span className="font-medium text-foreground">{sellerStatusLabel(sellerSelf?.status)}</span></div>
-              <div className="mt-2 leading-6">{sellerSelf?.status === "pass" ? "店铺已通过审核，可以正常经营。" : sellerSelf?.seller_id ? "店铺已提交，请关注审核状态。" : "提交店铺名称和简介后进入审核流程。"}</div>
+              <div className="mt-2 leading-6">{sellerSelf?.status === "pass" ? "店铺已通过审核，可以正常经营。" : sellerSelf?.seller_id ? "店铺已提交，请关注审核状态。" : "提交店铺名称和简介后进入审核流程，申请时将扣除 3000 萝卜。"}</div>
             </div>
             <div className="grid gap-3">
               <input value={sellerForm.name} onChange={(event) => setSellerForm((current) => ({ ...current, name: event.target.value }))} maxLength={30} placeholder="店铺名称，30 字内" className="h-11 rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
               <textarea value={sellerForm.description} onChange={(event) => setSellerForm((current) => ({ ...current, description: event.target.value }))} maxLength={200} placeholder="店铺简介，200 字内" rows={4} className="rounded-2xl border border-border/70 bg-background/50 px-4 py-3 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
               {sellerSelf?.seller_id ? <TemporaryFileInput label="店铺封面 URL，可手填或上传文件" value={sellerForm.cover} emosId={user.user_id} accept="image/*" onChange={(value) => setSellerForm((current) => ({ ...current, cover: value }))} onMessage={setMessage} /> : null}
+              {!sellerSelf?.seller_id ? <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-600 dark:text-amber-300">申请成为商户会扣除 3000 萝卜，提交前请确认余额与店铺信息。</div> : null}
               <button type="button" onClick={() => void handleSubmitSeller()} disabled={action === "seller"} className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50">{action === "seller" ? "提交中" : sellerSelf?.seller_id ? "更新店铺" : "提交申请"}</button>
             </div>
           </div>
@@ -1283,7 +1285,50 @@ function OrderList({ orders, total, action, onPay, onClose, onUrge, onDelete }: 
 function ProductDetailModal({ selectedProduct, productDetailStatus, buyNumber, remark, action, onClose, onBuyNumberChange, onRemarkChange, onCreateOrder }: { selectedProduct: ShopProductInfo | null; productDetailStatus: "idle" | "loading" | "ready" | "error"; buyNumber: string; remark: string; action: string; onClose: () => void; onBuyNumberChange: (value: string) => void; onRemarkChange: (value: string) => void; onCreateOrder: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-border/60 bg-background sm:rounded-3xl"><div className="flex items-center justify-between border-b border-border/60 px-5 py-4"><div className="text-base font-semibold">商品详情</div><button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 transition-colors hover:bg-muted/40"><X className="h-4 w-4" /></button></div><div className="flex-1 overflow-y-auto p-5">{productDetailStatus === "loading" ? <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在加载详情</div> : null}{selectedProduct ? <div className="space-y-5"><div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20">{selectedProduct.cover_url ? <div role="img" aria-label={selectedProduct.name} className="aspect-[16/9] bg-cover bg-center" style={{ backgroundImage: `url(${selectedProduct.cover_url})` }} /> : <div className="flex aspect-[16/9] items-center justify-center"><Package className="h-8 w-8 text-muted-foreground" /></div>}</div><div><div className="text-lg font-semibold">{selectedProduct.name}</div><div className="mt-2 text-sm leading-6 text-muted-foreground">{selectedProduct.description}</div></div><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">价格</div><div className="mt-1 text-base font-semibold text-amber-500">{formatCarrot(selectedProduct.price ?? selectedProduct.price_origin)}</div></div><div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">库存</div><div className="mt-1 text-base font-semibold">{selectedProduct.stock}</div></div><div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">销量</div><div className="mt-1 text-base font-semibold">{selectedProduct.sales}</div></div></div><div className="rounded-2xl border border-border/50 bg-muted/10 p-4 text-sm leading-6 text-muted-foreground">{selectedProduct.exchange_way}</div><div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]"><label><span className="mb-2 block text-xs text-muted-foreground">数量</span><input type="number" min="1" max="230" value={buyNumber} onChange={(event) => onBuyNumberChange(event.target.value)} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label><label><span className="mb-2 block text-xs text-muted-foreground">备注</span><input value={remark} onChange={(event) => onRemarkChange(event.target.value.slice(0, 100))} placeholder="可选，100 字内" className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label></div><button type="button" onClick={onCreateOrder} disabled={action === "create-order" || !selectedProduct.is_up} className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50">{action === "create-order" ? "提交中..." : "创建订单"}</button></div> : null}</div></div>
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-border/60 bg-background sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+          <div className="text-base font-semibold">商品详情</div>
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 transition-colors hover:bg-muted/40">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {productDetailStatus === "loading" ? <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在加载详情</div> : null}
+          {selectedProduct ? (
+            <div className="space-y-5">
+              <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20">
+                {selectedProduct.cover_url ? <div role="img" aria-label={selectedProduct.name} className="aspect-[16/9] bg-cover bg-center" style={{ backgroundImage: `url(${selectedProduct.cover_url})` }} /> : <div className="flex aspect-[16/9] items-center justify-center"><Package className="h-8 w-8 text-muted-foreground" /></div>}
+              </div>
+              <div>
+                <div className="text-lg font-semibold">{selectedProduct.name}</div>
+                <div className="mt-2 text-sm leading-6 text-muted-foreground">{selectedProduct.description}</div>
+              </div>
+              <Link href={`/user/shop/${selectedProduct.seller.seller_id}`} onClick={onClose} className="group flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/15 p-4 transition-colors hover:bg-muted/30">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-background/60">
+                  {selectedProduct.seller.cover_url ? <span className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${selectedProduct.seller.cover_url})` }} /> : <Store className="h-5 w-5 text-muted-foreground" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">Seller</span>
+                  <span className="mt-1 block truncate text-sm font-semibold text-foreground">{selectedProduct.seller.name}</span>
+                  <span className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{selectedProduct.seller.description}</span>
+                </span>
+                <span className="shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs font-semibold text-muted-foreground transition-colors group-hover:bg-background/60 group-hover:text-foreground">进店</span>
+              </Link>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">价格</div><div className="mt-1 text-base font-semibold text-amber-500">{formatCarrot(selectedProduct.price ?? selectedProduct.price_origin)}</div></div>
+                <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">库存</div><div className="mt-1 text-base font-semibold">{selectedProduct.stock}</div></div>
+                <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">销量</div><div className="mt-1 text-base font-semibold">{selectedProduct.sales}</div></div>
+              </div>
+              <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 text-sm leading-6 text-muted-foreground">{selectedProduct.exchange_way}</div>
+              <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
+                <label><span className="mb-2 block text-xs text-muted-foreground">数量</span><input type="number" min="1" max="230" value={buyNumber} onChange={(event) => onBuyNumberChange(event.target.value)} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label>
+                <label><span className="mb-2 block text-xs text-muted-foreground">备注</span><input value={remark} onChange={(event) => onRemarkChange(event.target.value.slice(0, 100))} placeholder="可选，100 字内" className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label>
+              </div>
+              <button type="button" onClick={onCreateOrder} disabled={action === "create-order" || !selectedProduct.is_up} className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50">{action === "create-order" ? "提交中..." : "创建订单"}</button>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

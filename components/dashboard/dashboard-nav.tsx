@@ -19,7 +19,7 @@ const navItems = [
   { label: "片单管理", href: "/user/watchlist" },
   { label: "求片管理", href: "/user/seek" },
   { label: "商城管理", href: "/user/shop" },
-  { label: "充值管理", href: "/user/wallet" },
+  { label: "支付管理", href: "/user/wallet" },
   { label: "社区管理", href: "/user/community" }
 ];
 

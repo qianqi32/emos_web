@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus, Eye, EyeOff, Plus, RefreshCw, Search, SearchCheck, Trash2 } from "lucide-react";
+import { BookmarkPlus, Eye, EyeOff, Plus, RefreshCw, Repeat2, Search, SearchCheck, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -379,9 +379,11 @@ export default function WatchlistPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] xl:min-w-[560px]">
             <div className="relative">
-              <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { handleSearch(); } }} placeholder={searchPlaceholder} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 pr-12 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-              <button type="button" onClick={toggleSearchMode} className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground" aria-label={searchMode === "name" ? "切换为按作者名称搜索" : "切换为按片单名称搜索"} title={searchMode === "name" ? "按片单名称搜索" : "按作者名称搜索"}>
-                {searchMode === "name" ? <Search className="h-4 w-4" /> : <SearchCheck className="h-4 w-4" />}
+              <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { handleSearch(); } }} placeholder={searchPlaceholder} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 pr-32 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              <button type="button" onClick={toggleSearchMode} className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center justify-center gap-1.5 rounded-full border border-border/70 bg-muted/35 px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-foreground hover:text-background" aria-label={searchMode === "name" ? "切换为按作者名称搜索" : "切换为按片单名称搜索"} title={searchMode === "name" ? "当前按片单名称搜索，点击切换作者" : "当前按作者名称搜索，点击切换片单"}>
+                {searchMode === "name" ? <Search className="h-3.5 w-3.5" /> : <SearchCheck className="h-3.5 w-3.5" />}
+                <span>{searchMode === "name" ? "片单" : "作者"}</span>
+                <Repeat2 className="h-3.5 w-3.5" />
               </button>
             </div>
             <button type="button" onClick={handleSearch} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border/70 px-5 text-sm font-semibold transition-colors hover:bg-muted/40">

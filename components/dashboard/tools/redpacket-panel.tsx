@@ -1,7 +1,7 @@
 "use client";
 
-import { Copy, Gift, Loader2, Search } from "lucide-react";
-import { useState } from "react";
+import { Copy, Gift, Loader2, RefreshCw, Search, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { TemporaryFileInput } from "@/components/ui/temporary-file-input";
@@ -27,17 +27,88 @@ function formatDateTime(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
 }
 
+function formatDuration(seconds: number | undefined) {
+  if (!seconds) return "-";
+  if (seconds % 86400 === 0) return `${seconds / 86400}天`;
+  if (seconds % 3600 === 0) return `${seconds / 3600}小时`;
+  if (seconds % 60 === 0) return `${seconds / 60}分钟`;
+  return `${seconds}秒`;
+}
+
+function redPacketTypeLabel(type: "default" | "password") {
+  return type === "password" ? "口令" : "普通";
+}
+
+function receiveLabel(receive: "average" | "random") {
+  return receive === "random" ? "随机" : "均分";
+}
+
+interface LocalRedPacketRecord {
+  red_packet_id: string;
+  carrot: number;
+  number: number;
+  type: "default" | "password";
+  receive: "average" | "random";
+  blessing: string;
+  text: string | null;
+  file_url: string | null;
+  file_type: string | null;
+  is_exclusive: boolean;
+  seconds: number;
+  created_at: string;
+}
+
+const DEFAULT_COVER_URL = "https://img.030666.xyz/file/1779455878815_redpacket_cover_1779455873987.jpg";
+const LOCAL_RECORDS_KEY = "emos-redpacket-records";
+const MAX_LOCAL_RECORDS = 30;
+const EXPIRE_OPTIONS = [
+  { label: "1分钟", value: "60" },
+  { label: "1小时", value: "3600" },
+  { label: "24小时", value: "86400" },
+  { label: "48小时", value: "172800" },
+  { label: "自定义", value: "custom" }
+] as const;
+
+type ExpireOption = (typeof EXPIRE_OPTIONS)[number]["value"];
+type ExpireUnit = "minute" | "hour";
+
+const EXPIRE_UNIT_MULTIPLIER: Record<ExpireUnit, number> = {
+  minute: 60,
+  hour: 3600
+};
+
+function readLocalRecords() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const value = window.localStorage.getItem(LOCAL_RECORDS_KEY);
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is LocalRedPacketRecord => typeof item?.red_packet_id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalRecords(records: LocalRedPacketRecord[]) {
+  window.localStorage.setItem(LOCAL_RECORDS_KEY, JSON.stringify(records.slice(0, MAX_LOCAL_RECORDS)));
+}
+
 export function RedPacketPanel() {
   const { token, user } = useUserConsole();
   const [type, setType] = useState<"default" | "password">("default");
   const [receive, setReceive] = useState<"average" | "random">("average");
   const [carrot, setCarrot] = useState("");
   const [number, setNumber] = useState("");
-  const [blessing, setBlessing] = useState("恭喜发财");
+  const [blessing, setBlessing] = useState("");
   const [text, setText] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [fileType, setFileType] = useState("");
+  const [useDefaultCover, setUseDefaultCover] = useState(false);
+  const [isExclusive, setIsExclusive] = useState(false);
+  const [expireOption, setExpireOption] = useState<ExpireOption>("86400");
   const [seconds, setSeconds] = useState("86400");
+  const [customExpireValue, setCustomExpireValue] = useState("24");
+  const [customExpireUnit, setCustomExpireUnit] = useState<ExpireUnit>("hour");
   const [creating, setCreating] = useState(false);
   const [pendingCreate, setPendingCreate] = useState<RedPacketCreatePayload | null>(null);
   const [createMessage, setCreateMessage] = useState("");
@@ -47,11 +118,49 @@ export function RedPacketPanel() {
   const [records, setRecords] = useState<RedPacketReceiveItem[]>([]);
   const [queryStatus, setQueryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [queryMessage, setQueryMessage] = useState("");
+  const [localRecords, setLocalRecords] = useState<LocalRedPacketRecord[]>(() => readLocalRecords());
+
+  const filteredLocalRecords = useMemo(() => {
+    const keyword = queryId.trim().toLowerCase();
+    return keyword ? localRecords.filter((record) => record.red_packet_id.toLowerCase().includes(keyword)) : localRecords;
+  }, [localRecords, queryId]);
+
+  function saveLocalRecord(record: LocalRedPacketRecord) {
+    setLocalRecords((current) => {
+      const next = [record, ...current.filter((item) => item.red_packet_id !== record.red_packet_id)].slice(0, MAX_LOCAL_RECORDS);
+      writeLocalRecords(next);
+      return next;
+    });
+  }
+
+  function clearLocalRecords() {
+    window.localStorage.removeItem(LOCAL_RECORDS_KEY);
+    setLocalRecords([]);
+  }
+
+  function handleExpireOptionChange(value: ExpireOption) {
+    setExpireOption(value);
+    if (value !== "custom") {
+      setSeconds(value);
+    }
+  }
+
+  function handleUseDefaultCoverChange(checked: boolean) {
+    setUseDefaultCover(checked);
+    if (checked) {
+      setFileUrl("");
+      setFileType("");
+    } else {
+      setFileUrl("");
+      setFileType("");
+    }
+  }
 
   async function handleCreate() {
     const carrotValue = Number(carrot);
     const numberValue = Number(number);
-    const secondsValue = Number(seconds);
+    const customExpireNumber = Number(customExpireValue);
+    const secondsValue = expireOption === "custom" ? customExpireNumber * EXPIRE_UNIT_MULTIPLIER[customExpireUnit] : Number(seconds);
 
     if (!Number.isInteger(carrotValue) || carrotValue < 1 || carrotValue > 60000) {
       setCreateMessage("红包总金额需为 1-60000 之间的整数");
@@ -78,6 +187,9 @@ export function RedPacketPanel() {
       return;
     }
 
+    const nextFileUrl = useDefaultCover ? DEFAULT_COVER_URL : fileUrl.trim();
+    const nextFileType = nextFileUrl ? inferFileType(nextFileUrl, useDefaultCover ? "image" : fileType) : null;
+
     const payload: RedPacketCreatePayload = {
       type,
       receive,
@@ -85,9 +197,9 @@ export function RedPacketPanel() {
       number: numberValue,
       blessing: blessing.trim(),
       text: type === "password" ? text.trim() : null,
-      file_url: fileUrl.trim() || null,
-      file_type: fileUrl.trim() ? inferFileType(fileUrl.trim(), fileType) : null,
-      is_exclusive: false,
+      file_url: nextFileUrl || null,
+      file_type: nextFileType,
+      is_exclusive: isExclusive,
       seconds: secondsValue,
     };
 
@@ -102,6 +214,20 @@ export function RedPacketPanel() {
     try {
       const result = await createRedPacket(payload, token);
       setCreatedId(result.red_packet_id);
+      saveLocalRecord({
+        red_packet_id: result.red_packet_id,
+        carrot: payload.carrot,
+        number: payload.number,
+        type: payload.type,
+        receive: payload.receive,
+        blessing: payload.blessing,
+        text: payload.text,
+        file_url: payload.file_url,
+        file_type: payload.file_type,
+        is_exclusive: payload.is_exclusive,
+        seconds: payload.seconds,
+        created_at: new Date().toISOString()
+      });
       setPendingCreate(null);
       setCreateMessage("红包创建成功");
     } catch (error) {
@@ -111,14 +237,7 @@ export function RedPacketPanel() {
     }
   }
 
-  async function handleQuery() {
-    const id = queryId.trim();
-
-    if (!id) {
-      setQueryMessage("请输入红包 ID");
-      return;
-    }
-
+  async function runQuery(id: string) {
     setQueryStatus("loading");
     setQueryMessage("");
 
@@ -133,6 +252,32 @@ export function RedPacketPanel() {
     }
   }
 
+  async function handleQuery() {
+    const id = queryId.trim();
+
+    if (!id) {
+      setQueryMessage("请输入红包 ID");
+      return;
+    }
+
+    await runQuery(id);
+  }
+
+  function refreshLocalRecords() {
+    setLocalRecords(readLocalRecords());
+  }
+
+  async function refreshQueryRecords() {
+    const id = queryId.trim();
+
+    if (!id) {
+      setQueryMessage("请输入红包 ID");
+      return;
+    }
+
+    await runQuery(id);
+  }
+
   async function handleCopyId() {
     if (!createdId) {
       return;
@@ -143,7 +288,7 @@ export function RedPacketPanel() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+    <div className="space-y-4 lg:space-y-5">
       <GlassPanel className="p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Gift className="h-4 w-4 text-muted-foreground" />
@@ -151,48 +296,86 @@ export function RedPacketPanel() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">支持普通/口令红包，均分或随机领取。</p>
 
-        <div className="mt-5 grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="mt-5 space-y-5">
+          <div className="grid gap-4 lg:grid-cols-4">
             <label className="block">
-              <span className="text-xs text-muted-foreground">红包类型</span>
+              <span className="text-xs text-muted-foreground">类型</span>
               <select value={type} onChange={(event) => setType(event.target.value as "default" | "password")} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15">
                 <option value="default">普通红包</option>
                 <option value="password">口令红包</option>
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-muted-foreground">领取方式</span>
+              <span className="text-xs text-muted-foreground">领取模式</span>
               <select value={receive} onChange={(event) => setReceive(event.target.value as "average" | "random")} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15">
                 <option value="average">均分</option>
                 <option value="random">随机</option>
               </select>
             </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-muted-foreground">总金额（1-60000）</span>
-              <input value={carrot} onChange={(event) => setCarrot(event.target.value)} type="number" min={1} max={60000} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              <span className="text-xs text-muted-foreground">萝卜</span>
+              <input value={carrot} onChange={(event) => setCarrot(event.target.value)} type="number" min={1} max={60000} placeholder="多发点" className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             </label>
             <label className="block">
-              <span className="text-xs text-muted-foreground">可领人数（1-10000）</span>
-              <input value={number} onChange={(event) => setNumber(event.target.value)} type="number" min={1} max={10000} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              <span className="text-xs text-muted-foreground">可领人数</span>
+              <input value={number} onChange={(event) => setNumber(event.target.value)} type="number" min={1} max={10000} placeholder="999" className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             </label>
           </div>
-          <label className="block">
-            <span className="text-xs text-muted-foreground">寄语（50 字内）</span>
-            <input value={blessing} onChange={(event) => setBlessing(event.target.value)} maxLength={50} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-          </label>
-          {type === "password" ? (
+
+          <div className={type === "password" ? "grid gap-4 lg:grid-cols-2" : "grid gap-4"}>
             <label className="block">
-              <span className="text-xs text-muted-foreground">口令（区分大小写，1-50 字）</span>
-              <input value={text} onChange={(event) => setText(event.target.value)} maxLength={50} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              <span className="text-xs text-muted-foreground">寄语</span>
+              <input value={blessing} onChange={(event) => setBlessing(event.target.value)} maxLength={50} placeholder="您要说点什么" className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             </label>
-          ) : null}
-          <label className="block">
-            <span className="text-xs text-muted-foreground">有效时长（秒，60-172800）</span>
-            <input value={seconds} onChange={(event) => setSeconds(event.target.value)} type="number" min={60} max={172800} className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+            {type === "password" ? (
+              <label className="block">
+                <span className="text-xs text-muted-foreground">口令</span>
+                <input value={text} onChange={(event) => setText(event.target.value)} maxLength={50} placeholder="领取口令，区分大小写" className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+              </label>
+            ) : null}
+          </div>
+
+          <label className="inline-flex items-center gap-3 text-sm text-muted-foreground">
+            <input type="checkbox" checked={isExclusive} onChange={(event) => setIsExclusive(event.target.checked)} className="h-4 w-4 accent-foreground" />
+            独占模式（仅显示封面/音频）
           </label>
-          <TemporaryFileInput label="红包资源 URL，可手填或上传文件" value={fileUrl} emosId={user.user_id} accept="image/*,audio/*,video/*" onChange={(value) => { setFileUrl(value); setFileType(""); }} onUploadedFileType={setFileType} onMessage={setCreateMessage} />
+
+          <div>
+            <span className="text-xs text-muted-foreground">过期时间</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {EXPIRE_OPTIONS.map((option) => (
+                <button key={option.value} type="button" onClick={() => handleExpireOptionChange(option.value)} className={expireOption === option.value ? "rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background" : "rounded-full border border-border/70 px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {expireOption === "custom" ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+                <input value={customExpireValue} onChange={(event) => setCustomExpireValue(event.target.value)} type="number" min={1} placeholder="输入时长" className="h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+                <select value={customExpireUnit} onChange={(event) => setCustomExpireUnit(event.target.value as ExpireUnit)} className="h-11 rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15">
+                  <option value="minute">分钟</option>
+                  <option value="hour">小时</option>
+                </select>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-3xl border border-border/50 bg-muted/10 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold">封面/音频（可选）</div>
+                <div className="mt-1 text-xs text-muted-foreground">默认封面会随红包一起发送，直链或上传会覆盖默认封面。</div>
+              </div>
+              <label className="inline-flex items-center gap-3 text-sm text-muted-foreground">
+                <input type="checkbox" checked={useDefaultCover} onChange={(event) => handleUseDefaultCoverChange(event.target.checked)} className="h-4 w-4 accent-foreground" />
+                启用默认封面
+              </label>
+            </div>
+            <div className="mt-4">
+              <TemporaryFileInput label="文件直链 URL（会覆盖默认封面）" value={fileUrl} emosId={user.user_id} accept="image/*,audio/*" onChange={(value) => { setUseDefaultCover(false); setFileUrl(value); setFileType(""); }} onUploadedFileType={(value) => { setUseDefaultCover(false); setFileType(value); }} onMessage={setCreateMessage} />
+            </div>
+          </div>
+
           <button type="button" onClick={handleCreate} disabled={creating} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
             {creating ? "创建中" : "发红包"}
@@ -211,30 +394,93 @@ export function RedPacketPanel() {
       </GlassPanel>
 
       <GlassPanel className="p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          领取记录
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">输入红包 ID 查看领取明细。</p>
-
-        <div className="mt-5 flex gap-2">
-          <input value={queryId} onChange={(event) => setQueryId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleQuery()} placeholder="红包 ID" className="h-11 flex-1 rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-          <button type="button" onClick={handleQuery} disabled={queryStatus === "loading"} className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">查询</button>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {queryStatus === "loading" ? <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在查询</div> : null}
-          {queryStatus === "error" ? <div className="py-6 text-sm text-danger">{queryMessage}</div> : null}
-          {queryStatus === "ready" && records.length === 0 ? <div className="py-6 text-center text-sm text-muted-foreground">暂无领取记录</div> : null}
-          {records.map((record, index) => (
-            <div key={`${record.user_id}-${index}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{record.username}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(record.receive_at)}</div>
-              </div>
-              <div className="shrink-0 text-sm font-semibold text-amber-500">{record.carrot} 萝卜</div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              查询与记录
             </div>
-          ))}
+            <p className="mt-2 text-sm text-muted-foreground">一个红包 ID 输入框同时用于筛选本地记录和查询领取明细。</p>
+          </div>
+          <button type="button" onClick={clearLocalRecords} disabled={localRecords.length === 0} className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-danger/35 px-4 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">
+            <Trash2 className="h-3.5 w-3.5" />
+            清空本地记录
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <input value={queryId} onChange={(event) => setQueryId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleQuery()} placeholder="输入红包 ID，筛选本地记录或查询领取明细" className="h-11 rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+          <button type="button" onClick={handleQuery} disabled={queryStatus === "loading"} className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">查询领取</button>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-3xl border border-border/50 bg-muted/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold">最近发出的红包</div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-muted-foreground">{filteredLocalRecords.length} / {localRecords.length}</div>
+                <button type="button" onClick={refreshLocalRecords} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  刷新
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {filteredLocalRecords.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">暂无匹配的本地记录</div> : null}
+              {filteredLocalRecords.map((record) => (
+                <div key={record.red_packet_id} className="rounded-2xl border border-border/50 bg-background/35 px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">{redPacketTypeLabel(record.type)}</span>
+                        <span className="text-sm font-semibold text-foreground">{record.carrot} 萝卜 / {record.number} 人</span>
+                      </div>
+                      <div className="mt-3 grid gap-1.5 text-sm text-muted-foreground sm:grid-cols-2">
+                        <div>寄语：<span className="text-foreground">{record.blessing}</span></div>
+                        <div>领取类型：<span className="text-foreground">{receiveLabel(record.receive)}</span></div>
+                        <div>有效期：<span className="text-foreground">{formatDuration(record.seconds)}</span></div>
+                        <div>创建时间：<span className="text-foreground">{formatDateTime(record.created_at)}</span></div>
+                        {record.text ? <div>口令：<span className="text-danger">{record.text}</span></div> : null}
+                        {record.file_url ? <a href={record.file_url} target="_blank" rel="noreferrer" className="text-primary transition-colors hover:text-foreground">查看资源</a> : null}
+                      </div>
+                      <div className="mt-3 border-t border-border/50 pt-3 font-mono text-xs text-primary">红包 ID：{record.red_packet_id}</div>
+                    </div>
+                    <button type="button" onClick={() => { setQueryId(record.red_packet_id); void runQuery(record.red_packet_id); }} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+                      查询领取
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border/50 bg-muted/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold">领取明细</div>
+              <div className="flex items-center gap-2">
+                {queryStatus === "ready" ? <div className="text-xs text-muted-foreground">{records.length} 条</div> : null}
+                <button type="button" onClick={() => void refreshQueryRecords()} disabled={queryStatus === "loading"} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
+                  {queryStatus === "loading" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  刷新
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {queryStatus === "idle" ? <div className="py-8 text-center text-sm text-muted-foreground">输入红包 ID 后点击查询领取。</div> : null}
+              {queryStatus === "loading" ? <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在查询</div> : null}
+              {queryStatus === "error" ? <div className="py-8 text-sm text-danger">{queryMessage}</div> : null}
+              {queryStatus === "ready" && records.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">暂无领取记录</div> : null}
+              {records.map((record, index) => (
+                <div key={`${record.user_id}-${index}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-background/35 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{record.username}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(record.receive_at)}</div>
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold text-amber-500">{record.carrot} 萝卜</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </GlassPanel>
 

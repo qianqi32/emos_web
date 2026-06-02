@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { ArrowUpRight, Loader2, Trophy, Play, Calendar, Coins } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowUpRight, Loader2, Trophy, Play, Calendar, Coins, RefreshCw, Search, ShieldAlert } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import {
@@ -21,8 +21,9 @@ import type {
   CarrotHistoryItem,
 } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
+import { BanPanel } from "@/components/dashboard/ban-panel";
 
-type TabType = "ranks" | "carrot";
+type TabType = "rank" | "carrot" | "ban";
 type RankTabType = "carrot" | "upload" | "playing" | "playing-live" | "sign";
 
 function formatSize(size: number) {
@@ -50,10 +51,16 @@ function getRankIcon(index: number) {
   return `#${index}`;
 }
 
+function readTab(value: string | null): TabType {
+  return value === "carrot" || value === "ban" ? value : "rank";
+}
+
 export default function CommunityPage() {
   const { token, user } = useUserConsole();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<TabType>(searchParams.get("tab") === "carrot" ? "carrot" : "ranks");
+  const activeTab = readTab(searchParams.get("tab"));
   const [activeRankTab, setActiveRankTab] = useState<RankTabType>("carrot");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -66,8 +73,22 @@ export default function CommunityPage() {
   const [carrotHistory, setCarrotHistory] = useState<CarrotHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyTypeInput, setHistoryTypeInput] = useState<"" | "earn" | "cost">("");
   const [historyType, setHistoryType] = useState<"earn" | "cost" | undefined>();
+  const [historyUserInput, setHistoryUserInput] = useState("");
+  const [historyUserId, setHistoryUserId] = useState("");
+  const [historyQueryKey, setHistoryQueryKey] = useState(0);
   const observerRef = useRef<HTMLDivElement>(null);
+
+  function setCommunityTab(tab: TabType) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "rank") {
+      params.set("tab", "rank");
+    } else {
+      params.set("tab", tab);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   const loadRankData = useCallback(async () => {
     setLoading(true);
@@ -99,7 +120,10 @@ export default function CommunityPage() {
     async (mode: "reset" | "append" = "reset", page = 1) => {
       setLoading(true);
       try {
-        const params = historyType ? { type: historyType } : undefined;
+        const params = {
+          type: historyType,
+          user_id: historyUserId.trim() || undefined,
+        };
         const data = await getCarrotHistory(
           { ...params, page, page_size: 20 },
           token
@@ -123,12 +147,12 @@ export default function CommunityPage() {
         setLoading(false);
       }
     },
-    [token, historyType]
+    [token, historyType, historyUserId]
   );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (activeTab === "ranks") {
+      if (activeTab === "rank") {
         void loadRankData();
       } else if (activeTab === "carrot") {
         void loadCarrotHistory("reset", 1);
@@ -136,7 +160,7 @@ export default function CommunityPage() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeTab, activeRankTab, historyType, loadRankData, loadCarrotHistory]);
+  }, [activeTab, activeRankTab, historyType, historyQueryKey, loadRankData, loadCarrotHistory]);
 
   const loadMoreHistory = useCallback(() => {
     if (!loading && historyTotal > carrotHistory.length) {
@@ -167,7 +191,7 @@ export default function CommunityPage() {
         <div>
           <h1 className="text-2xl font-semibold">社区</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            查看排行榜与萝卜记录
+            查看排行榜、萝卜记录与封禁管理
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-4 py-2">
@@ -180,16 +204,17 @@ export default function CommunityPage() {
       <GlassPanel className="p-2">
         <div className="flex gap-1">
           {[
-            { key: "ranks", label: "排行榜", icon: Trophy },
-            { key: "carrot", label: "萝卜记录", icon: Coins },
-          ].map((tab) => {
+              { key: "rank", label: "排行榜", icon: Trophy },
+              { key: "carrot", label: "萝卜记录", icon: Coins },
+              { key: "ban", label: "封禁管理", icon: ShieldAlert },
+            ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as TabType)}
+                onClick={() => setCommunityTab(tab.key as TabType)}
                 className={
                   isActive
                     ? "flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
@@ -210,7 +235,7 @@ export default function CommunityPage() {
         </div>
       ) : null}
 
-      {activeTab === "ranks" ? (
+      {activeTab === "rank" ? (
         <div className="space-y-6">
           <GlassPanel className="p-2">
             <div className="flex gap-1 overflow-x-auto">
@@ -391,34 +416,61 @@ export default function CommunityPage() {
         </div>
       ) : null}
 
+      {activeTab === "ban" ? (
+        <BanPanel />
+      ) : null}
+
       {activeTab === "carrot" ? (
         <div className="space-y-6">
           <GlassPanel className="p-2">
-            <div className="flex gap-1">
-              {[
-                { key: undefined, label: "全部" },
-                { key: "earn", label: "获得" },
-                { key: "cost", label: "消费" },
-              ].map((tab) => {
-                const isActive = historyType === tab.key;
-                return (
-                  <button
-                    key={tab.key || "all"}
-                    type="button"
-                    onClick={() => {
-                      setHistoryType(tab.key as "earn" | "cost" | undefined);
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_auto_auto]">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={historyUserInput}
+                  onChange={(event) => setHistoryUserInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
                       setCarrotHistory([]);
-                    }}
-                    className={
-                      isActive
-                        ? "rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
-                        : "rounded-full px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                      setHistoryUserId(historyUserInput.trim());
+                      setHistoryType(historyTypeInput || undefined);
+                      setHistoryQueryKey((current) => current + 1);
                     }
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+                  }}
+                  placeholder="输入 user_id 查询其他用户萝卜记录，留空查询当前账号"
+                  className="h-11 w-full rounded-full border border-border/70 bg-background/50 pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15"
+                />
+              </label>
+              <select value={historyTypeInput} onChange={(event) => setHistoryTypeInput(event.target.value as "" | "earn" | "cost")} className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15">
+                <option value="">全部类型</option>
+                <option value="earn">收入</option>
+                <option value="cost">支出</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setCarrotHistory([]);
+                  setHistoryUserId(historyUserInput.trim());
+                  setHistoryType(historyTypeInput || undefined);
+                  setHistoryQueryKey((current) => current + 1);
+                }}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                查询
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCarrotHistory([]);
+                  void loadCarrotHistory("reset", 1);
+                }}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border/70 px-5 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw className="h-4 w-4" />
+                刷新
+              </button>
             </div>
           </GlassPanel>
 

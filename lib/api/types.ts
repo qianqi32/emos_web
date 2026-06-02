@@ -219,6 +219,20 @@ export interface WatchSlotResponse {
   [key: string]: unknown;
 }
 
+export interface BanListItem {
+  user_id: string;
+  username?: string | null;
+  telegram_user_id?: string | number | null;
+  disable_reason?: string | null;
+  created_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface BanChangeResponse extends MutationResponse {
+  carrot?: number;
+  is_success?: boolean;
+}
+
 export interface WatchSubscribeResponse {
   is_subscribe: boolean;
   [key: string]: unknown;
@@ -767,6 +781,22 @@ export interface ShopOrderUrgeResponse {
 
 export interface ShopOrderDeleteResponse {
   is_delete: boolean;
+}
+
+export interface PayProviderBase {
+  name?: string | null;
+  description?: string | null;
+  notify_url?: string | null;
+  status?: string | null;
+  total_revenue?: number | null;
+  total_expenditure?: number | null;
+  [key: string]: unknown;
+}
+
+export interface PayTransferResponse {
+  deduct?: number;
+  carrot?: number;
+  [key: string]: unknown;
 }
 
 export interface PayCreateResponse {

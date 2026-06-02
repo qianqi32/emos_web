@@ -26,5 +26,6 @@ export * from "@/lib/api/vote";
 export * from "@/lib/api/live";
 export * from "@/lib/api/shop";
 export * from "@/lib/api/pay";
+export * from "@/lib/api/ban";
 export * from "@/lib/api/temporary";
 export type * from "@/lib/api/types";

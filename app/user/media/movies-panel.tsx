@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ImageOff, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -64,7 +64,14 @@ function MediaCard({ item }: { item: VideoListItem }) {
     <Link href={`/user/media/${item.video_id}`} className="group block rounded-3xl focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/15">
       <article className="overflow-hidden rounded-3xl border border-border/55 bg-background/45 shadow-glass transition-transform duration-200 hover:-translate-y-1 hover:bg-background/60">
         <div className="relative aspect-[2/3] overflow-hidden bg-muted/30">
-          {item.video_image_poster ? <div role="img" className="h-full w-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${item.video_image_poster})` }} aria-label={title} /> : <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">No Poster</div>}
+          {item.video_image_poster ? <div role="img" className="h-full w-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${item.video_image_poster})` }} aria-label={title} /> : (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,hsl(var(--muted))_0%,transparent_55%),linear-gradient(135deg,hsl(var(--muted)/0.35),hsl(var(--background)/0.85))] px-4 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/50 bg-background/45 text-muted-foreground shadow-sm backdrop-blur-md">
+                <ImageOff className="h-6 w-6" />
+              </div>
+              <div className="mt-3 line-clamp-2 text-xs font-semibold text-muted-foreground/80">{title}</div>
+            </div>
+          )}
           <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">{videoTypeLabel(item.video_type)}</div>
           {item.medias_count ? <div className="absolute right-3 top-3 rounded-full border border-success/25 bg-success/20 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">{item.medias_count} 资源</div> : null}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4 text-white opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
@@ -79,7 +86,7 @@ function MediaCard({ item }: { item: VideoListItem }) {
             <span>{videoYear(item.video_date_air)}</span>
             <span>{item.video_type === "tv" ? "TV" : item.video_type === "movie" ? "Movie" : "Video"}</span>
           </div>
-          {genres ? <div className="mt-3 line-clamp-1 text-[11px] text-muted-foreground">{genres}</div> : null}
+          <div className="mt-3 min-h-[16px] line-clamp-1 text-[11px] text-muted-foreground">{genres || "未分类"}</div>
         </div>
       </article>
     </Link>
