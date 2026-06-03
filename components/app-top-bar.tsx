@@ -14,7 +14,7 @@ export function AppTopBar({ compact = false }: AppTopBarProps) {
       {!compact ? <span className="hidden whitespace-nowrap sm:inline">EMOS CONTROL</span> : null}
       {!compact ? <span className="hidden h-4 w-px bg-border sm:block" /> : null}
       {!compact ? (
-        <a suppressHydrationWarning className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/40 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-background/80 hover:text-foreground" href="https://github.com" target="_blank" rel="noreferrer" title="GitHub Sync" aria-label="GitHub Sync">
+        <a suppressHydrationWarning className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/40 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-background/80 hover:text-foreground" href="https://github.com/qianqi32/emos_web" target="_blank" rel="noreferrer" title="GitHub Sync" aria-label="GitHub Sync">
           <Code2 className="h-4 w-4" />
         </a>
       ) : null}

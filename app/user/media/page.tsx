@@ -52,7 +52,7 @@ export default function MediaPage() {
         <div className="mt-3">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">媒体管理</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            统一管理影视、直播与音乐服务。影视列表保留搜索和资源筛选，直播直接浏览频道与播放源。
+            统一管理影视、直播与音乐服务。影视列表保留搜索和资源筛选，直播支持频道与播放源的增删查改。
           </p>
         </div>
       </GlassPanel>

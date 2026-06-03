@@ -236,7 +236,7 @@ export function LotteryPanel() {
             <span className="text-xs text-muted-foreground">抽奖简介（200 字内）</span>
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} rows={2} className="mt-2 w-full rounded-2xl border border-border/70 bg-background/50 px-4 py-2 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs text-muted-foreground">开始时间</span>
               <input value={timeStart} onChange={(event) => setTimeStart(event.target.value)} type="datetime-local" className="mt-2 h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
@@ -277,10 +277,10 @@ export function LotteryPanel() {
             </div>
             {prizes.map((prize, index) => (
               <div key={index} className="space-y-2 rounded-2xl border border-border/50 bg-muted/10 p-3">
-                <div className="flex items-center gap-2">
-                  <input value={prize.name} onChange={(event) => updatePrize(index, { name: event.target.value })} placeholder="奖品名称" maxLength={50} className="h-10 flex-1 rounded-xl border border-border/70 bg-background/50 px-3 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-                  <input value={prize.number} onChange={(event) => updatePrize(index, { number: event.target.value })} type="number" min={1} max={100} className="h-10 w-20 rounded-xl border border-border/70 bg-background/50 px-3 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-                  <button type="button" onClick={() => removePrize(index)} disabled={prizes.length <= 1} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-danger/35 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_90px_40px]">
+                  <input value={prize.name} onChange={(event) => updatePrize(index, { name: event.target.value })} placeholder="奖品名称" maxLength={50} className="h-10 w-full rounded-xl border border-border/70 bg-background/50 px-3 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+                  <input value={prize.number} onChange={(event) => updatePrize(index, { number: event.target.value })} type="number" min={1} max={100} placeholder="数量" className="h-10 w-full rounded-xl border border-border/70 bg-background/50 px-3 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+                  <button type="button" onClick={() => removePrize(index)} disabled={prizes.length <= 1} className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-danger/35 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40 sm:w-10">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -313,9 +313,9 @@ export function LotteryPanel() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">输入抽奖 ID 查看中奖名单，或取消、立即开奖。</p>
 
-        <div className="mt-5 flex gap-2">
-          <input value={queryId} onChange={(event) => setQueryId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleQuery()} placeholder="抽奖 ID" className="h-11 flex-1 rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
-          <button type="button" onClick={handleQuery} disabled={queryStatus === "loading"} className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">查询</button>
+        <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <input value={queryId} onChange={(event) => setQueryId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleQuery()} placeholder="抽奖 ID" className="h-11 w-full rounded-2xl border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
+          <button type="button" onClick={handleQuery} disabled={queryStatus === "loading"} className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">查询</button>
         </div>
 
         <div className="mt-3 flex gap-2">

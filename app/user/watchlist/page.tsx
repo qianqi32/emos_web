@@ -28,6 +28,7 @@ type SearchMode = "name" | "author";
 
 type PendingWatchAction =
   | { type: "delete"; item: WatchListItem }
+  | { type: "subscribe"; item: WatchListItem }
   | { type: "unsubscribe"; item: WatchListItem }
   | { type: "sort"; item: WatchListItem }
   | { type: "slot" }
@@ -282,6 +283,12 @@ export default function WatchlistPage() {
       return;
     }
 
+    if (watchPoint(item) > 0) {
+      setDialogError("");
+      setPendingAction({ type: "subscribe", item });
+      return;
+    }
+
     submitSubscribe(item);
   }
 
@@ -488,22 +495,26 @@ export default function WatchlistPage() {
         title={
           pendingAction?.type === "delete"
             ? "确认删除片单"
-            : pendingAction?.type === "unsubscribe"
-              ? "确认取消订阅"
-              : pendingAction?.type === "sort"
-                ? "调整订阅排序"
-                : "确认兑换片单卡槽"
+            : pendingAction?.type === "subscribe"
+              ? "确认订阅付费片单"
+              : pendingAction?.type === "unsubscribe"
+                ? "确认取消订阅"
+                : pendingAction?.type === "sort"
+                  ? "调整订阅排序"
+                  : "确认兑换片单卡槽"
         }
         description={
           pendingAction?.type === "delete"
             ? `将删除片单「${watchTitle(pendingAction.item)}」。`
-            : pendingAction?.type === "unsubscribe"
-              ? `将取消订阅「${watchTitle(pendingAction.item)}」。`
-              : pendingAction?.type === "sort"
-                ? `为「${watchTitle(pendingAction.item)}」设置订阅排序值。`
-                : pendingAction?.type === "slot"
-                  ? "兑换片单卡槽会立即扣除 1000 萝卜，请确认是否继续"
-                  : undefined
+            : pendingAction?.type === "subscribe"
+              ? `订阅「${watchTitle(pendingAction.item)}」后将每周扣除 ${watchPoint(pendingAction.item)} 萝卜，请确认是否继续。`
+              : pendingAction?.type === "unsubscribe"
+                ? `将取消订阅「${watchTitle(pendingAction.item)}」。`
+                : pendingAction?.type === "sort"
+                  ? `为「${watchTitle(pendingAction.item)}」设置订阅排序值。`
+                  : pendingAction?.type === "slot"
+                    ? "兑换片单卡槽会立即扣除 1000 萝卜，请确认是否继续"
+                    : undefined
         }
         inputLabel={pendingAction?.type === "sort" ? "订阅排序值" : undefined}
         inputValue={pendingAction?.type === "sort" ? sortInput : undefined}
@@ -516,6 +527,8 @@ export default function WatchlistPage() {
             ? "删除片单"
             : pendingAction?.type === "unsubscribe"
               ? "取消订阅"
+              : pendingAction?.type === "subscribe"
+              ? "确认订阅"
               : pendingAction?.type === "slot"
                 ? "扣除 1000 萝卜"
                 : "保存排序"
@@ -526,7 +539,7 @@ export default function WatchlistPage() {
         onConfirm={() => {
           if (pendingAction?.type === "delete") {
             submitDelete(pendingAction.item);
-          } else if (pendingAction?.type === "unsubscribe") {
+          } else if (pendingAction?.type === "subscribe" || pendingAction?.type === "unsubscribe") {
             submitSubscribe(pendingAction.item);
           } else if (pendingAction?.type === "sort") {
             submitSort(pendingAction.item);

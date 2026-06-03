@@ -3,6 +3,7 @@
 import { Check, ChevronLeft, ChevronRight, History, RefreshCw, RotateCcw, Search, Send, UserRound, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { BackToDashboardButton } from "@/components/dashboard/back-to-dashboard-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -222,10 +223,13 @@ export default function InvitePage() {
             <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">邀请用户</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">查看邀请额度、邀请关系与最近邀请历史。输入对方用户 ID 后即可消耗一次邀请额度完成邀请。</p>
           </div>
-          <button type="button" onClick={() => loadInviteData("refreshing")} disabled={action !== "idle"} className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">
-            <RefreshCw className={action === "refreshing" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-            刷新
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <BackToDashboardButton />
+            <button type="button" onClick={() => loadInviteData("refreshing")} disabled={action !== "idle"} className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">
+              <RefreshCw className={action === "refreshing" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+              刷新
+            </button>
+          </div>
         </div>
       </GlassPanel>
 

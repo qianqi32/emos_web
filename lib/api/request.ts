@@ -68,14 +68,21 @@ export async function requestJson<T>(path: string, token?: string, init?: Reques
     headers.set("authorization", token.startsWith("Bearer ") ? token : `Bearer ${token}`);
   }
 
-  const response = await fetch(path, {
-    ...init,
-    headers,
-    credentials: "include"
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers,
+      credentials: "include"
+    });
+  } catch (error) {
+    throw error;
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);
+
     throw new Error(message || `请求失败：${response.status}`);
   }
 

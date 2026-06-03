@@ -1,6 +1,6 @@
 "use client";
 
-import { Link2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { CalendarClock, CheckCircle2, Copy, Link2, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -12,6 +12,11 @@ interface ProxyFormState {
   name: string;
   url: string;
   tagline: string;
+}
+
+interface ToastState {
+  text: string;
+  tone: "success" | "error" | "info";
 }
 
 const EMPTY_FORM: ProxyFormState = {
@@ -37,8 +42,29 @@ function lineTitle(line: ProxyLineItem) {
   return line.name?.trim() || `线路 #${line.id}`;
 }
 
+function formatLineDate(value?: string | null) {
+  if (!value) {
+    return "时间未知";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "时间未知";
+  }
+
+  return date.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
+function isAdminRole(roles: string[]) {
+  return roles.includes("admin");
+}
+
 export default function ProxyPage() {
-  const { token } = useUserConsole();
+  const { token, user } = useUserConsole();
   const [lines, setLines] = useState<ProxyLineItem[]>([]);
   const [onlySelf, setOnlySelf] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -47,9 +73,11 @@ export default function ProxyPage() {
   const [action, setAction] = useState("idle");
   const [pendingDelete, setPendingDelete] = useState<ProxyLineItem | null>(null);
   const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   const selfLines = useMemo(() => lines.filter((line) => line.is_self), [lines]);
   const displayedLines = onlySelf ? selfLines : lines;
+  const isAdmin = isAdminRole(user.roles ?? []);
 
   const loadLines = useCallback(async () => {
     setStatus("loading");
@@ -73,6 +101,15 @@ export default function ProxyPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadLines]);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   function updateForm(key: keyof ProxyFormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -133,6 +170,22 @@ export default function ProxyPage() {
     })();
   }
 
+  async function handleCopyLine(line: ProxyLineItem) {
+    const url = line.url?.trim();
+
+    if (!url) {
+      setToast({ text: "该线路没有可复制的 URL", tone: "error" });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setToast({ text: `已复制线路：${lineTitle(line)}`, tone: "success" });
+    } catch {
+      setToast({ text: "复制失败，请手动选择线路地址", tone: "error" });
+    }
+  }
+
   return (
     <div className="space-y-4 lg:space-y-5">
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
@@ -185,33 +238,65 @@ export default function ProxyPage() {
         </GlassPanel>
       ) : null}
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
+      {message ? <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground shadow-sm backdrop-blur-xl">{message}</div> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载反代线路...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "反代线路加载失败"}</GlassPanel> : null}
 
       {status === "ready" && displayedLines.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">{onlySelf ? "暂无自己添加的反代线路。" : "暂无反代线路，点击添加线路创建第一条配置。"}</GlassPanel> : null}
 
       {status === "ready" && displayedLines.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {displayedLines.map((line) => (
-            <GlassPanel key={line.id} className="p-5 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-base font-semibold">{lineTitle(line)}</h2>
-                    {line.is_self ? <span className="rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-[10px] font-semibold text-success">我的线路</span> : null}
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {displayedLines.map((line) => {
+            const canDelete = Boolean(line.is_self) || isAdmin;
+            const title = lineTitle(line);
+            const url = line.url?.trim() || "未提供 URL";
+
+            return (
+              <GlassPanel key={line.id} className="group p-5 transition-transform duration-200 hover:-translate-y-0.5 hover:bg-background/60 sm:p-6">
+                <div className="flex min-h-full flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-lg font-semibold tracking-tight">{title}</h2>
+                        {line.is_self ? <span className="rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-[10px] font-semibold text-success">我的线路</span> : null}
+                      </div>
+                    </div>
+                    {canDelete ? (
+                      <button type="button" onClick={() => handleDeleteLine(line)} disabled={action !== "idle"} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-danger/30 text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`删除 ${title}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </div>
-                  <div className="mt-2 break-all font-mono text-xs text-muted-foreground">{line.url || "未提供 URL"}</div>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{line.tagline || "暂无简介"}</p>
-                  <div className="mt-3 text-xs text-muted-foreground">ID {line.id} · {line.created_at || "创建时间未知"}</div>
+
+                  <button type="button" onClick={() => void handleCopyLine(line)} className="mt-5 flex h-11 w-full items-center gap-3 rounded-2xl border border-border/70 bg-muted/25 px-4 text-left font-mono text-xs text-muted-foreground shadow-inner transition-colors hover:border-primary/25 hover:bg-muted/40 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/15" title="点击复制线路地址">
+                    <Link2 className="h-4 w-4 shrink-0 opacity-65" />
+                    <span className="min-w-0 flex-1 truncate">{url}</span>
+                    <Copy className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-70" />
+                  </button>
+
+                  <p className="mt-4 line-clamp-2 min-h-10 text-sm leading-5 text-amber-500 dark:text-amber-300">{line.tagline || "暂无线路简介"}</p>
+
+                  <div className="mt-5 border-t border-border/55 pt-4 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono"># ID: {line.id}</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        {formatLineDate(line.created_at)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" onClick={() => handleDeleteLine(line)} disabled={action !== "idle"} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-danger/35 px-3 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">
-                  <Trash2 className="h-3.5 w-3.5" />
-                  删除
-                </button>
-              </div>
-            </GlassPanel>
-          ))}
+              </GlassPanel>
+            );
+          })}
+        </div>
+      ) : null}
+      {toast ? (
+        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm sm:right-6 sm:top-6 sm:w-auto lg:right-8 lg:top-8">
+          <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/90 px-4 py-3 text-sm shadow-2xl backdrop-blur-xl">
+            {toast.tone === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : <XCircle className="h-4 w-4 shrink-0 text-danger" />}
+            <span className="min-w-0 truncate text-muted-foreground">{toast.text}</span>
+          </div>
         </div>
       ) : null}
       <ConfirmDialog

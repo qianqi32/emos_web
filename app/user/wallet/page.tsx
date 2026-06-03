@@ -445,9 +445,11 @@ export default function WalletPage() {
                 className={inputClass}
               />
             ) : null}
-            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-600 dark:text-amber-300">
-              申请时将扣除 5000 萝卜；申请后请联系管理员审核。
-            </div>
+            {!isProviderPassed ? (
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-600 dark:text-amber-300">
+                申请时将扣除 5000 萝卜；申请后请联系管理员审核。
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={handleProviderSubmit}

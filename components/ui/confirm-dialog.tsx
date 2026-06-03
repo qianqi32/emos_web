@@ -88,10 +88,11 @@ function ConfirmDialogContent({
   const canConfirm = !confirmText || confirmInput === confirmText;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-background/70 px-3 py-4 backdrop-blur-md sm:items-center sm:p-6">
-      <button type="button" aria-label="关闭确认框" className="absolute inset-0" onClick={loading ? undefined : onCancel} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-border/70 bg-background/95 p-5 shadow-2xl shadow-black/15 backdrop-blur-xl sm:p-6">
-        <div className="flex items-start gap-4">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-background/70 px-3 py-4 backdrop-blur-md sm:p-6">
+      <button type="button" aria-label="关闭确认框" className="fixed inset-0" onClick={loading ? undefined : onCancel} />
+      <div className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-border/70 bg-background/95 shadow-2xl shadow-black/15 backdrop-blur-xl sm:max-h-[calc(100dvh-3rem)]">
+        <div className="overflow-y-auto p-5 sm:p-6">
+          <div className="flex items-start gap-4">
           <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border", tone === "danger" ? "border-danger/25 bg-danger/10 text-danger" : "border-warning/25 bg-warning/10 text-warning")}>
             <AlertTriangle className="h-5 w-5" />
           </div>
@@ -131,8 +132,9 @@ function ConfirmDialogContent({
         ) : null}
 
         {error ? <div className="mt-5 rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm leading-6 text-danger">{error}</div> : null}
+        </div>
 
-        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+        <div className="grid shrink-0 gap-2 border-t border-border/60 bg-background/95 p-4 sm:grid-cols-2 sm:p-5">
           <button type="button" onClick={onCancel} disabled={loading} className="inline-flex h-11 items-center justify-center rounded-full border border-border/70 px-5 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:opacity-50">
             {cancelLabel}
           </button>

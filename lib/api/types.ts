@@ -464,8 +464,9 @@ export interface RankPlayingItem {
   season_number: number | null;
   episode_number: number | null;
   play_speed: number;
+  play_seconds: number;
   upload_pseudonym: string;
-  username?: string;
+  username: string;
   ua: string;
 }
 
@@ -640,6 +641,23 @@ export interface LiveMediaItem {
 }
 
 export type LiveMediaResponse = PaginatedResponse<LiveMediaItem>;
+
+export interface LiveListMutationResponse extends MutationResponse {
+  count?: number;
+}
+
+export interface LiveMediaCreateResponse extends MutationResponse {
+  live_media_id: string;
+  carrot: number;
+}
+
+export interface LiveMediaDeleteResponse extends MutationResponse {
+  carrot: number;
+}
+
+export interface LiveMediaUpdateResponse extends MutationResponse {
+  delete_count: number;
+}
 
 export interface ShopSellerBase {
   seller_id: number;

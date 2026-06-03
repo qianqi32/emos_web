@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Film, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BackToDashboardButton } from "@/components/dashboard/back-to-dashboard-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -136,8 +137,11 @@ export default function HistoryPage() {
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">观影历史</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">查看最近播放记录，支持电影/剧集筛选、标记完成与删除记录。接口仅返回回传超过 10 秒的视频。</p>
           </div>
-          <div className="rounded-2xl border border-border/50 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-            总计 <span className="font-mono text-foreground">{total}</span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <BackToDashboardButton />
+            <div className="rounded-2xl border border-border/50 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+              总计 <span className="font-mono text-foreground">{total}</span>
+            </div>
           </div>
         </div>
       </GlassPanel>

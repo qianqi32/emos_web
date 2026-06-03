@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Loader2, Trophy, Play, Calendar, Coins, RefreshCw, Search, ShieldAlert } from "lucide-react";
+import { ArrowUpRight, Loader2, Trophy, Play, Coins, RefreshCw, Search, ShieldAlert } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import {
@@ -9,7 +9,6 @@ import {
   getRankUpload,
   getRankPlaying,
   getRankPlayingLive,
-  getRankSign,
   getCarrotHistory,
 } from "@/lib/api/client";
 import type {
@@ -17,14 +16,13 @@ import type {
   RankUploadItem,
   RankPlayingItem,
   RankPlayingLiveItem,
-  RankSignItem,
   CarrotHistoryItem,
 } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 import { BanPanel } from "@/components/dashboard/ban-panel";
 
 type TabType = "rank" | "carrot" | "ban";
-type RankTabType = "carrot" | "upload" | "playing" | "playing-live" | "sign";
+type RankTabType = "carrot" | "upload" | "playing" | "playing-live";
 
 function formatSize(size: number) {
   if (size === 0) return "0 B";
@@ -34,14 +32,19 @@ function formatSize(size: number) {
 }
 
 function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return dateString.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+}
+
+function formatDuration(seconds: number) {
+  const safeSeconds = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const minutes = Math.floor(safeSeconds / 60);
+  const restSeconds = safeSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${restSeconds} 秒`;
+  }
+
+  return `${minutes} 分 ${restSeconds.toString().padStart(2, "0")} 秒`;
 }
 
 function getRankIcon(index: number) {
@@ -69,7 +72,6 @@ export default function CommunityPage() {
   const [uploadRank, setUploadRank] = useState<RankUploadItem[]>([]);
   const [playingRank, setPlayingRank] = useState<RankPlayingItem[]>([]);
   const [playingLiveRank, setPlayingLiveRank] = useState<RankPlayingLiveItem[]>([]);
-  const [signRank, setSignRank] = useState<RankSignItem[]>([]);
   const [carrotHistory, setCarrotHistory] = useState<CarrotHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -105,9 +107,6 @@ export default function CommunityPage() {
       } else if (activeRankTab === "playing-live") {
         const data = await getRankPlayingLive(token);
         setPlayingLiveRank(data);
-      } else if (activeRankTab === "sign") {
-        const data = await getRankSign(token);
-        setSignRank(data);
       }
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "加载失败");
@@ -244,7 +243,6 @@ export default function CommunityPage() {
                 { key: "upload", label: "上传榜", icon: ArrowUpRight },
                 { key: "playing", label: "正在看", icon: Play },
                 { key: "playing-live", label: "直播榜", icon: Play },
-                { key: "sign", label: "签到榜", icon: Calendar },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeRankTab === tab.key;
@@ -268,7 +266,7 @@ export default function CommunityPage() {
           </GlassPanel>
 
           <GlassPanel>
-            {loading && carrotRank.length === 0 && uploadRank.length === 0 && playingRank.length === 0 && playingLiveRank.length === 0 && signRank.length === 0 ? (
+            {loading && carrotRank.length === 0 && uploadRank.length === 0 && playingRank.length === 0 && playingLiveRank.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
@@ -324,27 +322,34 @@ export default function CommunityPage() {
               <div className="space-y-2">
                 {playingRank.map((item, index) => (
                   <div
-                    key={`${item.todb_id}-${item.tmdb_id}-${item.season_number}-${item.episode_number}-${index}`}
-                    className="flex items-center gap-4 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 transition-colors hover:bg-muted/20"
+                    key={`${item.username}-${item.todb_id}-${item.tmdb_id}-${item.season_number}-${item.episode_number}-${index}`}
+                    className="grid gap-3 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 transition-colors hover:bg-muted/20 sm:grid-cols-[auto_1fr_auto] sm:items-center"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/30 text-lg font-bold">
-                      <Play className="h-4 w-4 text-green-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{item.video_title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.season_number !== null && item.episode_number !== null
-                          ? `S${item.season_number}E${item.episode_number}`
-                          : item.video_type === "movie" ? "电影" : item.video_type}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {item.username.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 sm:hidden">
+                        <div className="truncate font-semibold">{item.username}</div>
+                        <div className="text-xs text-muted-foreground">{item.ua}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-muted-foreground">
-                        {item.upload_pseudonym || item.username || "未知用户"}
+                    <div className="min-w-0">
+                      <div className="hidden truncate font-semibold sm:block">{item.username}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:mt-1.5">
+                        <span className="rounded-full bg-background/60 px-2 py-0.5 text-foreground">{item.video_title}</span>
+                        <span>
+                          {item.season_number !== null && item.episode_number !== null
+                            ? `S${item.season_number}E${item.episode_number}`
+                            : item.video_type === "movie" ? "电影" : item.video_type}
+                        </span>
+                        <span>{item.play_speed / 10}x</span>
+                        <span>{formatDuration(item.play_seconds)}</span>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.play_speed / 10}x
-                      </div>
+                    </div>
+                    <div className="text-left text-xs text-muted-foreground sm:text-right">
+                      <div>上传者：{item.upload_pseudonym || "未知"}</div>
+                      <div className="mt-1 hidden sm:block">{item.ua}</div>
                     </div>
                   </div>
                 ))}
@@ -373,41 +378,11 @@ export default function CommunityPage() {
               </div>
             ) : null}
 
-            {activeRankTab === "sign" && signRank.length > 0 ? (
-              <div className="space-y-2">
-                {signRank.map((item) => (
-                  <div
-                    key={item.username}
-                    className="flex items-center gap-4 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 transition-colors hover:bg-muted/20"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/30 text-lg font-bold">
-                      {getRankIcon(item.sign_index)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{item.username}</div>
-                      <div className="text-xs text-muted-foreground">
-                        连续 {item.continuous_days} 天
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-green-500">
-                        +{item.earn_point} 萝卜
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDate(item.sign_at)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
             {!loading &&
               ((activeRankTab === "carrot" && carrotRank.length === 0) ||
                 (activeRankTab === "upload" && uploadRank.length === 0) ||
                 (activeRankTab === "playing" && playingRank.length === 0) ||
-                (activeRankTab === "playing-live" && playingLiveRank.length === 0) ||
-                (activeRankTab === "sign" && signRank.length === 0)) ? (
+                (activeRankTab === "playing-live" && playingLiveRank.length === 0)) ? (
               <div className="py-12 text-center text-muted-foreground">
                 暂无数据
               </div>

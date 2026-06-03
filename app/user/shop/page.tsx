@@ -129,6 +129,20 @@ function parseInteger(value: string, min: number, max: number) {
   return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : null;
 }
 
+function isSoldOut(product: Pick<ShopProductItem, "stock"> | Pick<ShopProductInfo, "stock">) {
+  return product.stock <= 0;
+}
+
+function ProductCoverPlaceholder() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,hsl(var(--muted))_0,hsl(var(--background))_55%,hsl(var(--muted))_100%)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-background/70 shadow-sm backdrop-blur">
+        <Package className="h-6 w-6 text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
 export default function ShopPage() {
   const { token, user } = useUserConsole();
   const [activeTab, setActiveTab] = useState<ActiveTab>("products");
@@ -478,6 +492,11 @@ export default function ShopPage() {
       return;
     }
 
+    if (isSoldOut(selectedProduct)) {
+      setMessage("该商品已售罄，暂时无法购买");
+      return;
+    }
+
     const count = Number.parseInt(buyNumber, 10);
 
     if (!Number.isInteger(count) || count < 1 || count > 230) {
@@ -781,6 +800,13 @@ export default function ShopPage() {
   }
 
   async function submitToggleProduct(productId: number) {
+    const product = merchantProducts.find((item) => item.product_id === productId);
+
+    if (product && !product.is_up && isSoldOut(product)) {
+      setDialogError("库存为 0 的商品不能上架，请先补充库存。");
+      return;
+    }
+
     setAction(`toggle-${productId}`);
 
     try {
@@ -998,15 +1024,20 @@ export default function ShopPage() {
             <>
               <div className="text-xs text-muted-foreground">共 <span className="font-mono text-foreground">{productTotal}</span> 件商品</div>
               <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                {products.map((product) => (
-                  <button key={product.product_id} type="button" onClick={() => void handleOpenProduct(product.product_id)} className="group overflow-hidden rounded-3xl border border-border/55 bg-background/45 text-left shadow-glass transition-transform duration-200 hover:-translate-y-1 hover:bg-background/60">
-                    <div className="relative aspect-[16/9] overflow-hidden bg-muted/30">
-                      {product.cover_url ? <div role="img" aria-label={product.name} className="h-full w-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${product.cover_url})` }} /> : <div className="flex h-full w-full items-center justify-center"><Package className="h-8 w-8 text-muted-foreground" /></div>}
-                      <div className="absolute right-3 top-3 rounded-full border border-white/20 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">库存 {product.stock}</div>
-                    </div>
-                    <div className="p-4"><div className="line-clamp-1 text-sm font-semibold">{product.name}</div><div className="mt-3 flex items-center justify-between gap-3"><div className="text-base font-semibold text-amber-500">{formatCarrot(product.price ?? product.price_origin)}</div><div className="text-xs text-muted-foreground">销量 {product.sales}</div></div></div>
-                  </button>
-                ))}
+                {products.map((product) => {
+                  const soldOut = isSoldOut(product);
+
+                  return (
+                    <button key={product.product_id} type="button" onClick={() => void handleOpenProduct(product.product_id)} className="group overflow-hidden rounded-3xl border border-border/55 bg-background text-left shadow-glass transition-transform duration-200 hover:-translate-y-1 hover:bg-background">
+                      <div className="relative aspect-[16/9] overflow-hidden bg-muted/20">
+                        {product.cover_url ? <div role="img" aria-label={product.name} className="h-full w-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${product.cover_url})` }} /> : <ProductCoverPlaceholder />}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className={soldOut ? "absolute left-3 top-3 rounded-full border border-warning/30 bg-background/90 px-2.5 py-1 text-[10px] font-semibold text-foreground shadow-sm" : "absolute right-3 top-3 rounded-full border border-white/20 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md"}>{soldOut ? "已售罄" : `库存 ${product.stock}`}</div>
+                      </div>
+                      <div className="p-4"><div className="line-clamp-1 text-sm font-semibold">{product.name}</div><div className="mt-3 flex items-center justify-between gap-3"><div className="text-base font-semibold text-amber-500">{formatCarrot(product.price ?? product.price_origin)}</div><div className="text-xs text-muted-foreground">销量 {product.sales}</div></div></div>
+                    </button>
+                  );
+                })}
               </div>
               <div ref={productLoadMoreRef} className="h-8" />
               <GlassPanel className="p-4 text-center text-sm text-muted-foreground">{productHasMore ? (productLoadingMore ? "正在加载更多商品..." : `已加载 ${products.length} / ${productTotal}，继续下拉加载更多`) : `已加载全部 ${productTotal} 件商品`}</GlassPanel>
@@ -1111,7 +1142,12 @@ export default function ShopPage() {
               loading={merchantProductStatus === "loading"}
               onPageChange={setMerchantProductPage}
             />
-            {merchantProductStatus === "loading" ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">加载商品中...</GlassPanel> : null}{merchantProducts.map((product) => <GlassPanel key={product.product_id} className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold">{product.name}</div><div className="mt-1 text-xs text-muted-foreground">{formatCarrot(product.price ?? product.price_origin)} · 库存 {product.stock} · 排序 {product.sort} · {product.is_up ? "已上架" : "已下架"}</div></div></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void handleEditProduct(product.product_id)} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40">编辑</button><button type="button" onClick={() => openDialog({ type: "toggle-product", product })} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40">{product.is_up ? "下架" : "上架"}</button><button type="button" onClick={() => openDialog({ type: "sort-product", product }, String(product.sort))} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40">排序</button><button type="button" onClick={() => openDialog({ type: "delete-product", product })} className="h-9 rounded-full border border-danger/40 px-3 text-xs font-semibold text-danger hover:bg-danger/10">删除</button></div></GlassPanel>)}{merchantProductStatus === "ready" && merchantProducts.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">暂无商品</GlassPanel> : null}</div>
+      {merchantProductStatus === "loading" ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">加载商品中...</GlassPanel> : null}{merchantProducts.map((product) => {
+        const soldOut = isSoldOut(product);
+        const canToggle = product.is_up || !soldOut;
+
+        return <GlassPanel key={product.product_id} className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{product.name}</div>{soldOut ? <span className="rounded-full border border-danger/25 bg-danger/10 px-2.5 py-1 text-[10px] font-semibold text-danger">已售罄</span> : null}</div><div className="mt-1 text-xs text-muted-foreground">{formatCarrot(product.price ?? product.price_origin)} · 库存 {product.stock} · 排序 {product.sort} · {product.is_up ? "已上架" : "已下架"}</div>{soldOut ? <div className="mt-2 text-xs text-danger">库存为 0，只能展示，补充库存后才能上架。</div> : null}</div></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void handleEditProduct(product.product_id)} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40">编辑</button><button type="button" onClick={() => openDialog({ type: "toggle-product", product })} disabled={!canToggle} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">{product.is_up ? "下架" : soldOut ? "已售罄" : "上架"}</button><button type="button" onClick={() => openDialog({ type: "sort-product", product }, String(product.sort))} className="h-9 rounded-full border border-border/70 px-3 text-xs font-semibold hover:bg-muted/40">排序</button><button type="button" onClick={() => openDialog({ type: "delete-product", product })} className="h-9 rounded-full border border-danger/40 px-3 text-xs font-semibold text-danger hover:bg-danger/10">删除</button></div></GlassPanel>;
+      })}{merchantProductStatus === "ready" && merchantProducts.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">暂无商品</GlassPanel> : null}</div>
         </div>
       ) : null}
 
@@ -1297,7 +1333,7 @@ function ProductDetailModal({ selectedProduct, productDetailStatus, buyNumber, r
           {selectedProduct ? (
             <div className="space-y-5">
               <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20">
-                {selectedProduct.cover_url ? <div role="img" aria-label={selectedProduct.name} className="aspect-[16/9] bg-cover bg-center" style={{ backgroundImage: `url(${selectedProduct.cover_url})` }} /> : <div className="flex aspect-[16/9] items-center justify-center"><Package className="h-8 w-8 text-muted-foreground" /></div>}
+                {selectedProduct.cover_url ? <div role="img" aria-label={selectedProduct.name} className="aspect-[16/9] bg-cover bg-center" style={{ backgroundImage: `url(${selectedProduct.cover_url})` }} /> : <div className="aspect-[16/9]"><ProductCoverPlaceholder /></div>}
               </div>
               <div>
                 <div className="text-lg font-semibold">{selectedProduct.name}</div>
@@ -1316,15 +1352,16 @@ function ProductDetailModal({ selectedProduct, productDetailStatus, buyNumber, r
               </Link>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">价格</div><div className="mt-1 text-base font-semibold text-amber-500">{formatCarrot(selectedProduct.price ?? selectedProduct.price_origin)}</div></div>
-                <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">库存</div><div className="mt-1 text-base font-semibold">{selectedProduct.stock}</div></div>
+                <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">库存</div><div className={isSoldOut(selectedProduct) ? "mt-1 text-base font-semibold text-danger" : "mt-1 text-base font-semibold"}>{isSoldOut(selectedProduct) ? "已售罄" : selectedProduct.stock}</div></div>
                 <div className="rounded-2xl border border-border/50 bg-muted/10 p-4"><div className="text-xs text-muted-foreground">销量</div><div className="mt-1 text-base font-semibold">{selectedProduct.sales}</div></div>
               </div>
               <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 text-sm leading-6 text-muted-foreground">{selectedProduct.exchange_way}</div>
+              {isSoldOut(selectedProduct) ? <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm leading-6 text-danger">该商品已售罄，仅展示商品信息，暂时无法创建订单。</div> : null}
               <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                 <label><span className="mb-2 block text-xs text-muted-foreground">数量</span><input type="number" min="1" max="230" value={buyNumber} onChange={(event) => onBuyNumberChange(event.target.value)} className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label>
                 <label><span className="mb-2 block text-xs text-muted-foreground">备注</span><input value={remark} onChange={(event) => onRemarkChange(event.target.value.slice(0, 100))} placeholder="可选，100 字内" className="h-11 w-full rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15" /></label>
               </div>
-              <button type="button" onClick={onCreateOrder} disabled={action === "create-order" || !selectedProduct.is_up} className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50">{action === "create-order" ? "提交中..." : "创建订单"}</button>
+              <button type="button" onClick={onCreateOrder} disabled={action === "create-order" || !selectedProduct.is_up || isSoldOut(selectedProduct)} className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50">{action === "create-order" ? "提交中..." : isSoldOut(selectedProduct) ? "已售罄" : "创建订单"}</button>
             </div>
           ) : null}
         </div>

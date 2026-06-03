@@ -376,10 +376,12 @@ export function RedPacketPanel() {
             </div>
           </div>
 
-          <button type="button" onClick={handleCreate} disabled={creating} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
-            {creating ? "创建中" : "发红包"}
-          </button>
+          <div className="sticky bottom-3 z-20 -mx-1 rounded-[1.75rem] border border-border/70 bg-background/90 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
+            <button type="button" onClick={handleCreate} disabled={creating} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+              {creating ? "创建中" : "发红包"}
+            </button>
+          </div>
           {createdId ? (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3 text-sm">
               <span className="break-all font-mono text-foreground">{createdId}</span>
