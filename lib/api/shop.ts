@@ -76,7 +76,7 @@ export interface ShopCategorySortPayload {
 export interface ShopProductCreateOrUpdatePayload {
   product_id?: number | null;
   category_id: number;
-  cover?: string | null;
+  cover_url?: string | null;
   name: string;
   description: string;
   exchange_way: string;

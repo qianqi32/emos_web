@@ -3,6 +3,7 @@
 import { CheckCircle2, FileText, Film, Loader2, Play, RefreshCw, Search, Trash2, UploadCloud, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { getUploadToken, getVideoBaseInfo, getVideoEpisodes, getVideoList, saveSubtitleUpload, saveVideoUpload } from "@/lib/api/client";
 import type { VideoEpisodeItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
@@ -434,6 +435,7 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <UploadCloud className="h-3.5 w-3.5" />
@@ -455,7 +457,6 @@ export default function UploadPage() {
       </GlassPanel>
 
       {!user.is_can_upload ? <GlassPanel className="border-warning/30 p-4 text-sm text-warning">当前账号资料显示暂未开启上传权限，如接口返回无权限，请先在账号侧完成上传协议或权限申请。</GlassPanel> : null}
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <GlassPanel className="p-4 sm:p-5">

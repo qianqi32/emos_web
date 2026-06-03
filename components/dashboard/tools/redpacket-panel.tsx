@@ -11,20 +11,18 @@ import type { RedPacketReceiveItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
 function inferFileType(url: string, uploadedFileType: string) {
-  if (uploadedFileType) {
+  if (uploadedFileType === "image" || uploadedFileType === "audio") {
     return uploadedFileType;
   }
 
   const lower = url.toLowerCase();
   if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|$)/.test(lower)) return "image";
   if (/\.(mp3|m4a|aac|wav|ogg|flac)(\?|#|$)/.test(lower)) return "audio";
-  if (/\.(mp4|m4v|mov|webm|mkv)(\?|#|$)/.test(lower)) return "video";
-  return "file";
+  return null;
 }
 
 function formatDateTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
 }
 
 function formatDuration(seconds: number | undefined) {
@@ -189,6 +187,11 @@ export function RedPacketPanel() {
 
     const nextFileUrl = useDefaultCover ? DEFAULT_COVER_URL : fileUrl.trim();
     const nextFileType = nextFileUrl ? inferFileType(nextFileUrl, useDefaultCover ? "image" : fileType) : null;
+
+    if (nextFileUrl && !nextFileType) {
+      setCreateMessage("红包附件仅支持图片或音频");
+      return;
+    }
 
     const payload: RedPacketCreatePayload = {
       type,

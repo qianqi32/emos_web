@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BackToDashboardButton } from "@/components/dashboard/back-to-dashboard-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { changeRecord, getRecordList } from "@/lib/api/client";
 import type { RecordListItem } from "@/lib/api/types";
@@ -127,6 +128,7 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={status === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <Film className="h-3.5 w-3.5" />
@@ -165,7 +167,6 @@ export default function HistoryPage() {
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载观影历史...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "观影历史加载失败"}</GlassPanel> : null}
       {status === "ready" && records.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">暂无观影历史。</GlassPanel> : null}

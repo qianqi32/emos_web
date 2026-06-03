@@ -5,6 +5,7 @@ import { Loader2, Package, ReceiptText, RefreshCw, Search, ShoppingBag, Store, X
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { TemporaryFileInput } from "@/components/ui/temporary-file-input";
 import {
   applyShopSeller,
@@ -775,7 +776,7 @@ export default function ShopPage() {
         {
           product_id: productForm.productId,
           category_id: category,
-          cover: productForm.cover.trim() || null,
+          cover_url: productForm.cover.trim() || null,
           name,
           description,
           exchange_way: exchangeWay,
@@ -939,7 +940,8 @@ export default function ShopPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      <GlassPanel className="p-5 sm:p-6 lg:p-8">
+      <PageToast message={message} onClose={() => setMessage("")} />
+      <GlassPanel className="p-5 sm:p-6 lg:p-7">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <ShoppingBag className="h-3.5 w-3.5" />
           Shop
@@ -962,7 +964,6 @@ export default function ShopPage() {
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="px-4 py-3 text-sm text-muted-foreground">{message}</GlassPanel> : null}
 
       <GlassPanel className="p-2">
         <div className="flex flex-wrap gap-1">

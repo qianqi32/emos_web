@@ -8,6 +8,10 @@ import type { VoteCreatePayload } from "@/lib/api/vote";
 import type { VoteResultResponse } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
+function formatDateTime(value: string) {
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+}
+
 export function VotePanel() {
   const { token } = useUserConsole();
   const [question, setQuestion] = useState("");
@@ -88,7 +92,7 @@ export function VotePanel() {
     try {
       const response = await createVote(payload, token);
       setCreatedId(String(response.vote_id));
-      setCreateMessage(`投票创建成功，结束时间 ${response.time_end}`);
+      setCreateMessage(`投票创建成功，结束时间 ${formatDateTime(response.time_end)}`);
     } catch (error) {
       setCreateMessage(error instanceof Error ? error.message : "投票创建失败");
     } finally {
@@ -215,7 +219,7 @@ export function VotePanel() {
             <>
               <div className="rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
                 <div className="text-sm font-semibold">{result.question}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{result.time_start} 至 {result.time_end} · 共 {result.users.length} 人参与</div>
+                <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(result.time_start)} 至 {formatDateTime(result.time_end)} · 共 {result.users.length} 人参与</div>
               </div>
               {tally.map((item, index) => (
                 <div key={index} className="rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">

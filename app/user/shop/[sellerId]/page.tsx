@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { createShopOrder, getShopCategoryList, getShopProductInfo, getShopProductList, getShopSellerBase } from "@/lib/api/client";
 import type { ShopCategory, ShopProductInfo, ShopProductItem, ShopSellerBase } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
@@ -232,6 +233,7 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={status === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <Link href="/user/shop" className="inline-flex h-9 items-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -263,7 +265,6 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
 
       <GlassPanel className="p-4 sm:p-5">
         <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_auto_auto]">

@@ -184,6 +184,7 @@ export interface WatchAuthor {
 export interface WatchListItem {
   subscribe_id?: number | null;
   id: number;
+  type?: string | null;
   name: string;
   description: string;
   is_public: boolean;

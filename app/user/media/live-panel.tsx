@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 import { addLiveMedia, deleteLiveList, deleteLiveMedia, getLiveLibrary, getLiveList, getLiveMedia, saveLiveList, updateLiveMedia } from "@/lib/api/client";
 import type { LiveLibrary, LiveListItem, LiveListSavePayload, LiveMediaItem, LiveMediaPayload } from "@/lib/api/client";
@@ -410,6 +411,7 @@ export function LivePanel() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={message} onClose={() => setMessage("")} />
       <GlassPanel className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -440,7 +442,6 @@ export function LivePanel() {
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="px-4 py-3 text-sm text-muted-foreground">{message}</GlassPanel> : null}
       {libraryError ? <StatusMessage error={libraryError} /> : null}
       {channelError ? <StatusMessage error={channelError} /> : null}
 
@@ -478,11 +479,13 @@ export function LivePanel() {
                   <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{channel.media_count} 个源</span>
                   <span className="truncate text-xs text-muted-foreground">{activeLibrary?.title ?? channel.code ?? `#${channel.id}`}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => openEditChannel(channel)} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border/70 text-xs font-semibold transition-colors hover:bg-muted/40">
-                    <Pencil className="h-3.5 w-3.5" />
-                    编辑
-                  </button>
+                <div className={channel.is_can_edit ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                  {channel.is_can_edit ? (
+                    <button type="button" onClick={() => openEditChannel(channel)} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border/70 text-xs font-semibold transition-colors hover:bg-muted/40">
+                      <Pencil className="h-3.5 w-3.5" />
+                      编辑
+                    </button>
+                  ) : null}
                   <button type="button" onClick={() => openSources(channel)} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border/70 text-xs font-semibold transition-colors hover:bg-muted/40">
                     <Radio className="h-3.5 w-3.5" />
                     源

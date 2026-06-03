@@ -4,6 +4,7 @@ import { ArrowLeft, BookmarkPlus, ExternalLink, Link2, Plus, RefreshCw, Search, 
 import { useCallback, useEffect, useRef, useState, use } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { batchUpdateWatchVideos, clearWatchVideos, deleteWatchVideo, getWatchList, getWatchVideoList, searchWatchVideo, updateWatchDynamic, updateWatchVideo } from "@/lib/api/client";
@@ -60,14 +61,14 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
 
   const [batchInput, setBatchInput] = useState("");
 
-  const isOwner = watch?.is_self ?? false;
+  const canEditVideos = Boolean(watch?.is_edit_video ?? watch?.is_self ?? false);
 
   const loadWatch = useCallback(async () => {
     setWatchStatus("loading");
     setMessage("");
     try {
-      const result = await getWatchList({ id: watchId }, token);
-      const item = result.items?.[0] ?? null;
+      const result = await getWatchList({ watch_id: watchId }, token);
+      const item = result.items?.find((entry) => String(entry.id) === watchId) ?? null;
       if (!item) {
         setWatchStatus("error");
         setMessage("片单不存在或无权查看");
@@ -165,7 +166,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
     runAction(`remove-${video.video_id}`, async () => {
       await deleteWatchVideo(watchId, String(video.video_id), token);
       setPendingAction(null);
-      setVideos((current) => current.filter((v) => v.video_id !== video.video_id));
+      await loadVideos("reset", 1);
       await loadWatch();
       return `已移除「${video.video_title}」`;
     });
@@ -273,6 +274,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={watchStatus === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <button type="button" onClick={() => router.push("/user/watchlist")} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
@@ -313,7 +315,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetricCard label="视频数" value={textValue(watch.video_count, "0")} />
+              <MetricCard label="视频数" value={textValue(videoStatus === "ready" ? videoTotal : watch.video_count, "0")} />
               <MetricCard label="订阅数" value={textValue(watch.subscribe_count, "0")} />
               <MetricCard label="所需萝卜" value={textValue(watchPoint(watch), "0")} />
               <MetricCard label="卡槽剩余" value={textValue(watch.slot_remaining, "-")} />
@@ -328,15 +330,15 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex flex-wrap gap-2">
               {(["list", "add", "dynamic", "batch"] as VideoTab[]).map((t) => {
                 const labels: Record<VideoTab, string> = { list: "视频列表", add: "添加视频", dynamic: "动态抓取", batch: "批量设置" };
-                const disabled = t !== "list" && !isOwner;
+                const disabled = t !== "list" && !canEditVideos;
                 return (
                   <button key={t} type="button" onClick={() => !disabled && setTab(t)} disabled={disabled} className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${tab === t ? "border-foreground bg-foreground text-background" : "border-border/70 text-muted-foreground hover:bg-muted/40 hover:text-foreground"} ${disabled ? "cursor-not-allowed opacity-40" : ""}`}>
                     {labels[t]}
-                    {!isOwner && t !== "list" ? <span className="ml-1 text-[10px]">(仅创建者)</span> : null}
+                    {!canEditVideos && t !== "list" ? <span className="ml-1 text-[10px]">(无编辑权限)</span> : null}
                   </button>
                 );
               })}
-              {isOwner ? (
+              {canEditVideos ? (
                 <button type="button" onClick={handleClearVideos} disabled={action !== "idle" || videos.length === 0} className="ml-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-danger/35 px-3 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">
                   <Trash2 className="h-3.5 w-3.5" />清空视频
                 </button>
@@ -344,7 +346,6 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             </div>
           </GlassPanel>
 
-          {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
 
           {tab === "list" ? (
             <>
@@ -359,7 +360,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
 
               {videoStatus === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载视频列表...</GlassPanel> : null}
               {videoStatus === "error" ? <GlassPanel className="p-8 text-sm text-danger">视频列表加载失败</GlassPanel> : null}
-              {videoStatus === "ready" && videos.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">片单暂无视频{isOwner ? "，可切换到「添加视频」标签添加" : ""}</GlassPanel> : null}
+              {videoStatus === "ready" && videos.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">片单暂无视频{canEditVideos ? "，可切换到「添加视频」标签添加" : ""}</GlassPanel> : null}
 
               {videoStatus === "ready" && videos.length > 0 ? (
                 <div className="grid gap-3">
@@ -381,7 +382,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <StatusBadge tone="muted">{videoTypeLabel[video.video_type] || video.video_type}</StatusBadge>
-                              {isOwner ? (
+                              {canEditVideos ? (
                                 <button type="button" onClick={() => handleRemoveVideo(video)} disabled={action !== "idle"} className="inline-flex h-7 items-center justify-center rounded-full border border-danger/35 px-2 text-[10px] font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">
                                   <X className="h-3 w-3" />
                                 </button>
@@ -413,7 +414,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             </>
           ) : null}
 
-          {tab === "add" && isOwner ? (
+          {tab === "add" && canEditVideos ? (
             <GlassPanel className="p-5 sm:p-6">
               <h2 className="text-base font-semibold">搜索并添加视频</h2>
               <p className="mt-2 text-sm text-muted-foreground">搜索不在片单中的视频，点击添加到片单。</p>
@@ -456,7 +457,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             </GlassPanel>
           ) : null}
 
-          {tab === "dynamic" && isOwner ? (
+          {tab === "dynamic" && canEditVideos ? (
             <GlassPanel className="p-5 sm:p-6">
               <h2 className="text-base font-semibold">动态抓取</h2>
               <p className="mt-2 text-sm text-muted-foreground">设置动态抓取 URL，系统将自动从该地址抓取视频并加入片单。留空则清除。</p>
@@ -480,7 +481,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
             </GlassPanel>
           ) : null}
 
-          {tab === "batch" && isOwner ? (
+          {tab === "batch" && canEditVideos ? (
             <GlassPanel className="p-5 sm:p-6">
               <h2 className="text-base font-semibold">批量设置</h2>
               <p className="mt-2 text-sm text-muted-foreground">批量更新片单视频，每行一条，格式：<code className="rounded bg-muted/50 px-1.5 py-0.5 text-xs">video_id|todb_id|tmdb_id|video_type|title</code>。todb_id 和 tmdb_id 可省略。</p>

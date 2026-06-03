@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { TemporaryFileInput } from "@/components/ui/temporary-file-input";
 import { deleteWatch, getWatchList, redeemWatchSlot, saveWatch, sortWatch, toggleWatchShow, toggleWatchSubscribe } from "@/lib/api/client";
 import type { WatchListItem } from "@/lib/api/types";
@@ -14,6 +15,7 @@ const PAGE_SIZE = 20;
 
 interface WatchFormState {
   id: number | null;
+  type: string;
   name: string;
   description: string;
   is_public: boolean;
@@ -36,6 +38,7 @@ type PendingWatchAction =
 
 const EMPTY_FORM: WatchFormState = {
   id: null,
+  type: "video",
   name: "",
   description: "",
   is_public: true,
@@ -76,6 +79,7 @@ function formatTags(value: string) {
 function formFromWatch(item: WatchListItem): WatchFormState {
   return {
     id: item.id,
+    type: item.type || "video",
     name: item.name || "",
     description: item.description || "",
     is_public: item.is_public,
@@ -247,6 +251,7 @@ export default function WatchlistPage() {
     runAction("save", async () => {
       await saveWatch({
         id: form.id,
+        type: form.type,
         name,
         description,
         is_public: form.is_public,
@@ -357,6 +362,7 @@ export default function WatchlistPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={status === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <BookmarkPlus className="h-3.5 w-3.5" />
@@ -438,7 +444,6 @@ export default function WatchlistPage() {
         </GlassPanel>
       ) : null}
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载片单...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "片单加载失败"}</GlassPanel> : null}
       {status === "ready" && filteredItems.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">当前筛选下暂无片单。{hasMore ? "继续下拉会加载更多片单。" : ""}</GlassPanel> : null}

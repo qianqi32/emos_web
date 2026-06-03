@@ -23,6 +23,10 @@ type PendingLotteryAction =
   | { type: "stop"; id: string }
   | null;
 
+function formatDateTime(value: string) {
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+}
+
 export function LotteryPanel() {
   const { token } = useUserConsole();
   const [name, setName] = useState("");
@@ -330,14 +334,14 @@ export function LotteryPanel() {
             <>
               <div className="rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
                 <div className="text-sm font-semibold">{winResult.lottery_name}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{winResult.time_start} 至 {winResult.time_end} · 参加 {winResult.amount} 萝卜</div>
+                <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(winResult.time_start)} 至 {formatDateTime(winResult.time_end)} · 参加 {winResult.amount} 萝卜</div>
               </div>
               {winResult.users.length === 0 ? <div className="py-6 text-center text-sm text-muted-foreground">暂无中奖记录</div> : null}
               {winResult.users.map((winner) => (
                 <div key={`${winner.user_id}-${winner.join_index}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{winner.user_username}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{winner.join_at}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(winner.join_at)}</div>
                   </div>
                   <div className="shrink-0 text-sm font-semibold text-green-500">{winner.prize_name}</div>
                 </div>

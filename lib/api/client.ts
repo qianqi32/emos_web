@@ -28,4 +28,5 @@ export * from "@/lib/api/shop";
 export * from "@/lib/api/pay";
 export * from "@/lib/api/ban";
 export * from "@/lib/api/temporary";
+export * from "@/lib/api/trakt";
 export type * from "@/lib/api/types";

@@ -20,6 +20,7 @@ const navItems = [
   { label: "求片管理", href: "/user/seek" },
   { label: "商城管理", href: "/user/shop" },
   { label: "支付管理", href: "/user/wallet" },
+  { label: "Trakt 周报", href: "/user/trakt" },
   { label: "社区管理", href: "/user/community" }
 ];
 

@@ -126,7 +126,7 @@ export function SignInCard({ token, user, onUserChange }: SignInCardProps) {
         {message ? <div className="mt-4 rounded-2xl border border-info/20 bg-info/10 px-4 py-3 text-sm text-info">{message}</div> : null}
       </GlassPanel>
 
-      <ToolDialog open={rankOpen} title="签到榜" description="今日签到排行，看看谁最早打卡、谁连续天数更稳。" maxWidthClassName="max-w-2xl" onClose={() => setRankOpen(false)}>
+      <ToolDialog open={rankOpen} title="签到榜" description="今日签到排行，让我看看谁在卡点" maxWidthClassName="max-w-2xl" onClose={() => setRankOpen(false)}>
         {rankStatus === "loading" ? (
           <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

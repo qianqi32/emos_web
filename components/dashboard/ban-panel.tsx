@@ -4,6 +4,7 @@ import { Ban, CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { changeBanStatus, getBanList } from "@/lib/api/client";
 import type { BanListItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
@@ -23,7 +24,7 @@ const actionLabels: Record<BanActionType, string> = {
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return value.split("T")[0] || value;
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
 }
 
 function itemTitle(item: BanListItem) {
@@ -119,6 +120,7 @@ export function BanPanel() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={status === "error" ? "" : message} tone="success" onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <ShieldAlert className="h-3.5 w-3.5" />
@@ -160,7 +162,6 @@ export function BanPanel() {
         <GlassPanel className="p-5 text-sm leading-6 text-muted-foreground">当前账号不是管理员，只能查看封禁列表，无法执行封禁或解封操作。</GlassPanel>
       )}
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载封禁列表...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "封禁列表加载失败"}</GlassPanel> : null}
       {status === "ready" && items.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">当前没有封禁记录。</GlassPanel> : null}

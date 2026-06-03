@@ -4,6 +4,7 @@ import { Clock, HandHeart, History, RefreshCw, Search, UploadCloud, X } from "lu
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import { applySeek, claimSeek, getSeekHistory, getSeekList, querySeek, urgeSeek } from "@/lib/api/client";
 import type { SeekHistoryItem, SeekListItem, SeekQueryResponse } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
@@ -304,6 +305,7 @@ export default function SeekPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={status === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <HandHeart className="h-3.5 w-3.5" />
@@ -360,7 +362,6 @@ export default function SeekPage() {
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="p-4 text-sm text-muted-foreground">{message}</GlassPanel> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载求片列表...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "求片列表加载失败"}</GlassPanel> : null}
       {status === "ready" && items.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">当前筛选下暂无求片。</GlassPanel> : null}

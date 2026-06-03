@@ -3,6 +3,7 @@ import type { MutationResponse, PaginatedResponse, WatchDynamicResponse, WatchLi
 
 export interface WatchListParams extends QueryParams {
   watch_id?: string;
+  type?: string;
   name?: string;
   author_id?: string;
   author_username?: string;
@@ -13,6 +14,7 @@ export interface WatchListParams extends QueryParams {
 
 export interface WatchSavePayload {
   id?: number | null;
+  type: string;
   name: string;
   description: string;
   is_public: boolean;

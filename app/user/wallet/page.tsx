@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight, ExternalLink, Link2, Loader2, ReceiptText,
 import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageToast } from "@/components/ui/page-toast";
 import {
   applyPayProvider,
   closePayOrder,
@@ -59,7 +60,9 @@ function providerStatusLabel(status: string | null | undefined) {
 }
 
 function formatTime(value: string | null) {
-  return value || "-";
+  if (!value) return "-";
+
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
 }
 
 function validateProviderForm(form: ProviderFormState): ProviderFormValidation {
@@ -366,6 +369,7 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      <PageToast message={message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -406,7 +410,6 @@ export default function WalletPage() {
         </div>
       </GlassPanel>
 
-      {message ? <GlassPanel className="px-4 py-3 text-sm text-muted-foreground">{message}</GlassPanel> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
         <GlassPanel className="p-5 sm:p-6">
