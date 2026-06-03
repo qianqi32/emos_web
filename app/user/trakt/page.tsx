@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Loader2, RefreshCw, Sparkles, Unlink } from "lucide-react";
+import { CalendarDays, Copy, ExternalLink, Loader2, RefreshCw, Sparkles, Unlink } from "lucide-react";
 import { useState } from "react";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -139,6 +139,12 @@ export default function TraktPage() {
     setMessage("已解绑 Trakt");
   }
 
+  async function copyDeviceCode() {
+    if (!deviceCode) return;
+    await navigator.clipboard.writeText(deviceCode.user_code);
+    setMessage("验证码已复制");
+  }
+
   const loading = status !== "idle";
 
   return (
@@ -166,9 +172,23 @@ export default function TraktPage() {
 
       {deviceCode ? (
         <GlassPanel className="p-5 sm:p-6">
-          <div className="rounded-3xl border border-border/60 bg-muted/15 p-4">
-            <div className="text-sm text-muted-foreground">访问 <span className="font-mono text-foreground">{deviceCode.verification_url}</span>，输入验证码：</div>
-            <div className="mt-2 font-mono text-3xl font-semibold tracking-widest">{deviceCode.user_code}</div>
+          <div className="rounded-3xl border border-border/60 bg-muted/15 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+              <div className="flex w-fit max-w-full flex-col justify-between rounded-2xl border border-border/50 bg-background/35 p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 1 · 打开 Trakt 授权页</div>
+                <a href={deviceCode.verification_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-14 max-w-full items-center gap-2 rounded-2xl border border-border/70 px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted/40 hover:text-primary">
+                  <span className="font-mono">{deviceCode.verification_url}</span>
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                </a>
+              </div>
+              <div className="flex w-fit max-w-full flex-col justify-between rounded-2xl border border-border/50 bg-background/35 p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 2 · 复制验证码</div>
+                <button type="button" onClick={copyDeviceCode} className="mt-3 inline-flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-background/60 px-5 font-mono text-3xl font-semibold tracking-widest transition-colors hover:bg-muted/40" title="点击复制验证码">
+                  {deviceCode.user_code}
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
             <button type="button" onClick={checkBind} disabled={loading} className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50">检查授权</button>
           </div>
         </GlassPanel>
