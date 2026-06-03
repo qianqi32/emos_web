@@ -46,6 +46,9 @@
 
 ## 🧭 当前路由
 
+<details>
+<summary>展开查看当前路由</summary>
+
 | 路由 | 说明 | 状态 |
 | ---- | ---- | ---- |
 | `/` | 登录页，包含网页授权登录与 Token 登录 | ✅ |
@@ -71,6 +74,8 @@
 | `/user/realm` | 修仙境界、萝卜进度与境界体系展示 | ✅ |
 
 > 控制台路由目前采用客户端 Token 恢复与保护。未登录访问 `/user` 会返回登录页。
+
+</details>
 
 ---
 
@@ -263,6 +268,9 @@ EMOS_API_BASE_URL=https://api.emos.best
 
 ## 🔌 已接入 API
 
+<details>
+<summary>展开查看已接入接口清单</summary>
+
 | 模块 | 接口 |
 | ---- | ---- |
 | 登录校验 | `GET /api/sign/check` |
@@ -289,23 +297,10 @@ EMOS_API_BASE_URL=https://api.emos.best
 
 所有请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。分页响应统一读取文档约定的 `items / total / page / page_size`。
 
----
+</details>
 
 ---
 
-## 🎨 设计方向
+## 📜 许可证
 
-本项目视觉方向：
-
-- 工程终端感的信息层级
-- 克制的语义状态色
-- 玻璃拟态面板与轻量边框
-- 全局网格背景
-- 桌面端侧边栏与移动端底部抽屉
-- 避免把移动端简单压缩成桌面布局
-
----
-
-## 📜 说明
-
-本项目是面向 EMOS 用户的自助控制台前端，不包含独立后端服务。部署时通过 Serverless Route Handler 转发 EMOS API 请求。
+[MIT License](LICENSE)
