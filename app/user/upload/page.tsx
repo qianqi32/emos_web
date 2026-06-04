@@ -4,7 +4,7 @@ import { CheckCircle2, FileText, Film, Loader2, Play, RefreshCw, Search, Trash2,
 import { useCallback, useMemo, useRef, useState } from "react";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { PageToast } from "@/components/ui/page-toast";
-import { getUploadToken, getVideoBaseInfo, getVideoEpisodes, getVideoList, saveSubtitleUpload, saveVideoUpload } from "@/lib/api/client";
+import { getUploadToken, getVideoBaseInfo, getVideoEpisodes, getVideoList, identifyVideo, saveSubtitleUpload, saveVideoUpload } from "@/lib/api/client";
 import type { VideoEpisodeItem } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
@@ -215,6 +215,37 @@ export default function UploadPage() {
       return { ...pendingFile, status: "error", error: "文件为空，不能上传" };
     }
 
+    // 优先使用 identify 接口识别文件
+    try {
+      const identifyResult = await identifyVideo({ filename: file.name }, token);
+
+      if (identifyResult?.item_id) {
+        const titleParts: string[] = [];
+        if (identifyResult.title) {
+          titleParts.push(identifyResult.title);
+        }
+        if (identifyResult.seasonNumber != null && identifyResult.episodeNumber != null) {
+          titleParts.push(`S${identifyResult.seasonNumber}E${identifyResult.episodeNumber}`);
+        }
+
+        return {
+          ...pendingFile,
+          status: "ready",
+          itemType: identifyResult.item_type || itemTypeFromId(identifyResult.item_id),
+          itemId: identifyResult.item_id,
+          title: titleParts.length > 0 ? titleParts.join(" ") : parsed.cleanTitle,
+          parsed: {
+            ...parsed,
+            seasonNumber: typeof identifyResult.seasonNumber === "number" ? identifyResult.seasonNumber : parsed.seasonNumber,
+            episodeNumber: typeof identifyResult.episodeNumber === "number" ? identifyResult.episodeNumber : parsed.episodeNumber
+          }
+        };
+      }
+    } catch {
+      // identify 接口失败，回退到标题搜索
+    }
+
+    // 回退：通过标题搜索匹配
     if (!parsed.cleanTitle) {
       return { ...pendingFile, status: "error", error: "无法从文件名解析标题，请手动填写 item ID" };
     }
@@ -444,7 +475,7 @@ export default function UploadPage() {
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">上传视频与字幕</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">选择文件后自动解析标题与季集，匹配媒体条目，获取上传令牌并保存上传结果。</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">选择文件后自动通过文件识别接口匹配媒体条目，识别失败时回退到标题搜索，获取上传令牌并保存上传结果。</p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5 lg:flex">
             <div className="rounded-2xl border border-border/50 bg-muted/15 px-4 py-3 text-muted-foreground">待确认 <span className="font-mono text-foreground">{stats.pending}</span></div>

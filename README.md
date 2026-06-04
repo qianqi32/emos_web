@@ -32,7 +32,8 @@
 | **商城管理** | 支持商品浏览、店铺详情、下单、订单查询、萝卜支付、关闭订单、催发货、申请开店、店铺信息更新、分类管理、商品管理、商户订单、发货与备注 |
 | **支付管理** | 支持支付订单创建、支付页跳转、订单查询、关闭订单、服务商申请、服务商信息更新与服务商转账 |
 | **观影历史** | 支持播放记录分页浏览、电影/剧集筛选、标记完成与删除记录 |
-| **直播管理** | 独立直播管理页，支持直播库、直播频道与直播媒体源三层浏览、搜索、复制媒体地址与权限错误提示 |
+| **直播管理** | 独立直播管理页，支持直播库、直播频道与直播媒体源三层浏览、搜索、复制媒体地址、频道新增/编辑/删除、直播源新增/删除/批量更新与权限错误提示 |
+| **Trakt 周报** | 支持 Trakt 设备码授权、历史同步、观影周报、追剧日历与可选 AI 辣评，第三方密钥仅在服务端使用 |
 | **修仙境界** | 根据萝卜余额展示当前境界、进度、下一境界与完整境界体系 |
 | **社区工具** | 萝卜榜、上传榜、正在看榜、签到榜、萝卜记录、转赠萝卜、红包、抽奖、投票与播放记录工具入口 |
 | **工具独立页面** | 红包、抽奖、投票已提供独立路由，支持创建、查询结果/记录和危险操作确认 |
@@ -54,8 +55,9 @@
 | `/` | 登录页，包含网页授权登录与 Token 登录 | ✅ |
 | `/user` | 用户仪表盘首页 | ✅ |
 | `/user/profile` | 用户信息、账号操作与视频服登录设备管理 | ✅ |
-| `/user/media` | 媒体库列表、影视搜索筛选、直播频道与播放源增删查改、音乐服务入口 | ✅ |
+| `/user/media` | 媒体库列表、影视搜索筛选、直播频道入口、音乐服务入口 | ✅ |
 | `/user/media/[id]` | 媒体详情、季集结构、资源与字幕管理 | ✅ |
+| `/user/live` | 独立直播管理页，支持直播库、频道、媒体源浏览与管理 | ✅ |
 | `/user/upload` | 视频与字幕上传、自动匹配、上传队列和保存结果 | ✅ |
 | `/user/watchlist` | 片单列表、搜索、创建、编辑、删除、订阅、排序与显示状态切换 | ✅ |
 | `/user/watchlist/[id]` | 片单详情、视频列表、添加视频、动态 URL 与批量更新 | ✅ |
@@ -72,6 +74,7 @@
 | `/user/ban` | 封禁管理，支持封禁列表与状态修改，需管理权限 | ✅ |
 | `/user/history` | 观影历史、电影/剧集筛选、标记完成与删除记录 | ✅ |
 | `/user/realm` | 修仙境界、萝卜进度与境界体系展示 | ✅ |
+| `/user/trakt` | Trakt 设备码授权、历史同步、观影周报、追剧日历与可选 AI 辣评 | ✅ |
 
 > 控制台路由目前采用客户端 Token 恢复与保护。未登录访问 `/user` 会返回登录页。
 
@@ -144,7 +147,8 @@ emos_web/
 │   ├── layout.tsx                  # 全局布局与主题启动脚本
 │   ├── globals.css                 # 全局样式、主题变量、网格背景
 │   ├── api/
-│   │   └── emos/[...path]/route.ts # EMOS API Serverless Proxy
+│   │   ├── emos/[...path]/route.ts # EMOS API Serverless Proxy
+│   │   └── trakt/route.ts          # Trakt / AI 周报服务端代理
 │   └── user/
 │       ├── layout.tsx              # 用户控制台布局
 │       ├── page.tsx                # 仪表盘首页
@@ -167,7 +171,8 @@ emos_web/
 │       ├── vote/page.tsx           # 投票工具独立页
 │       ├── ban/page.tsx            # 封禁管理页，需管理权限
 │       ├── history/page.tsx        # 观影历史、筛选、标记完成与删除记录
-│       └── realm/page.tsx          # 修仙境界与境界体系展示
+│       ├── realm/page.tsx          # 修仙境界与境界体系展示
+│       └── trakt/page.tsx          # Trakt 同步、周报、追剧日历与 AI 辣评
 ├── components/
 │   ├── dashboard/                  # 控制台 Shell、导航、用户中心与仪表盘卡片
 │   ├── ui/                         # 玻璃面板、状态徽章、指标卡片等基础组件
@@ -179,6 +184,9 @@ emos_web/
 │   ├── auth/session.ts             # Token 本地存储与授权回调解析
 │   └── utils.ts                    # 通用工具函数
 ├── docs/
+│   ├── emos_api_6.4.md              # 最新 EMOS API 文档
+│   ├── check-cx ui.md               # 当前 UI/UX 设计规范
+│   ├── 项目梳理草图.md              # 三项目梳理与开发方向草图
 │   └── EMOS Web 功能补齐与治理计划.md # 功能补齐、信息架构与治理计划
 ├── next.config.ts                  # Next.js 配置
 └── package.json
@@ -289,13 +297,15 @@ EMOS_API_BASE_URL=https://api.emos.best
 | 红包 | `POST /api/redPacket/create`、`GET /api/redPacket/receive` |
 | 抽奖 | `POST /api/lottery/create`、`GET /api/lottery/win`、`PUT /api/lottery/cancel`、`PUT /api/lottery/stop` |
 | 投票 | `POST /api/telegram/vote/create`、`GET /api/telegram/vote/result` |
-| 直播 | `GET /api/live/library`、`GET /api/live/list`、`GET /api/live/media` |
+| 直播 | `GET /api/live/library`、`GET /api/live/list`、`POST /api/live/list`、`DELETE /api/live/list/{live_list_id}`、`GET /api/live/media`、`POST /api/live/media`、`DELETE /api/live/media/{live_media_id}`、`POST /api/live/media/update` |
 | 商城 | `GET /api/shop/seller/base`、`POST /api/shop/seller/apply`、`POST /api/shop/seller/update`、`GET /api/shop/category/list`、`POST /api/shop/category/create`、`DELETE /api/shop/category/delete`、`PUT /api/shop/category/sort`、`GET /api/shop/product/list`、`GET /api/shop/product/info`、`POST /api/shop/product/createOrUpdate`、`DELETE /api/shop/product/delete`、`PUT /api/shop/product/sort`、`PUT /api/shop/product/category`、`PUT /api/shop/product/up`、`POST /api/shop/order/user/create`、`POST /api/shop/order/user/pay`、`GET /api/shop/order/user/list`、`PUT /api/shop/order/user/urge`、`POST /api/shop/order/user/close`、`DELETE /api/shop/order/user/order`、`GET /api/shop/order/shop/order`、`DELETE /api/shop/order/shop/order`、`PUT /api/shop/order/shop/delivery`、`POST /api/shop/order/shop/remark` |
 | 支付 | `POST /api/pay/apply`、`GET /api/pay/base`、`POST /api/pay/update`、`POST /api/pay/transfer`、`POST /api/pay/create`、`GET /api/pay/query`、`PUT /api/pay/close` |
 | 封禁 | `GET /api/ban/list`、`PUT /api/ban/change` |
 | 观影记录 | `GET /api/video/record/list`、`PUT /api/video/record/change` |
 
-所有请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。分页响应统一读取文档约定的 `items / total / page / page_size`。
+所有 EMOS 请求通过本项目的 `/api/emos/[...path]` 代理到 `EMOS_API_BASE_URL`。分页响应统一读取文档约定的 `items / total / page / page_size`。
+
+第三方能力通过独立服务端代理处理：`/api/trakt` 负责 Trakt 设备码授权、token refresh、历史同步、周报、追剧日历和可选 AI 辣评，Trakt Client Secret 与 AI API Key 不暴露给客户端。
 
 </details>
 

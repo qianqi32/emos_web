@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { MutationResponse, PaginatedResponse, WatchDynamicResponse, WatchListResponse, WatchSaveResponse, WatchShowResponse, WatchSlotResponse, WatchSubscribeResponse, WatchVideoBatchResultItem, WatchVideoCountResponse, WatchVideoListResponse, WatchVideoSearchItem } from "@/lib/api/types";
+import type { MutationResponse, PaginatedResponse, WatchDynamicResponse, WatchListResponse, WatchMusicCountResponse, WatchMusicListResponse, WatchMusicSearchResponse, WatchSaveResponse, WatchShowResponse, WatchSlotResponse, WatchSubscribeResponse, WatchVideoBatchResultItem, WatchVideoCountResponse, WatchVideoListResponse, WatchVideoSearchItem } from "@/lib/api/types";
 
 export interface WatchListParams extends QueryParams {
   watch_id?: string;
@@ -46,6 +46,23 @@ export interface WatchVideoSearchParams extends QueryParams {
 }
 
 export interface WatchVideoUpdatePayload {
+  sort: number;
+  remark?: string | null;
+}
+
+export interface WatchMusicListParams extends QueryParams {
+  song_title?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface WatchMusicSearchParams extends QueryParams {
+  song_title: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface WatchMusicUpdatePayload {
   sort: number;
   remark?: string | null;
 }
@@ -113,6 +130,26 @@ export function deleteWatchVideo(watchId: string, videoId: string, token?: strin
 
 export function clearWatchVideos(watchId: string, token?: string) {
   return requestJson<WatchVideoCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/video/empty`, token, { method: "DELETE" });
+}
+
+export function getWatchMusicList(watchId: string, params?: WatchMusicListParams, token?: string) {
+  return requestJson<WatchMusicListResponse>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/music`, params), token);
+}
+
+export function searchWatchMusic(watchId: string, params: WatchMusicSearchParams, token?: string) {
+  return requestJson<WatchMusicSearchResponse>(buildApiPath(`/api/emos/api/watch/${encodeURIComponent(watchId)}/music/search`, params), token);
+}
+
+export function updateWatchMusic(watchId: string, musicSongId: string, data: WatchMusicUpdatePayload, token?: string) {
+  return requestJson<WatchMusicCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/music/${encodeURIComponent(musicSongId)}`, token, jsonRequestInit("POST", data));
+}
+
+export function deleteWatchMusic(watchId: string, musicSongId: string, token?: string) {
+  return requestJson<WatchMusicCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/music/${encodeURIComponent(musicSongId)}`, token, { method: "DELETE" });
+}
+
+export function clearWatchMusic(watchId: string, token?: string) {
+  return requestJson<WatchMusicCountResponse>(`/api/emos/api/watch/${encodeURIComponent(watchId)}/music/empty`, token, { method: "DELETE" });
 }
 
 export function updateWatchDynamic(watchId: string, data: WatchDynamicPayload, token?: string) {

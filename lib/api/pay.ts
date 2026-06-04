@@ -5,7 +5,10 @@ import type {
   PayCreateResponse,
   PayProviderBase,
   PayQueryResponse,
-  PayTransferResponse
+  PayTestNotifyResponse,
+  PayTransferResponse,
+  PayUserCarrotResponse,
+  PayUserInfoResponse
 } from "@/lib/api/types";
 
 export interface PayCreatePayload {
@@ -29,6 +32,19 @@ export interface PayProviderPayload {
 export interface PayTransferPayload {
   user_id: string;
   carrot: number;
+}
+
+export interface PayTestNotifyPayload {
+  no: string;
+}
+
+export interface PayUserCarrotParams extends QueryParams {
+  user_id: string;
+}
+
+export interface PayUserInfoParams extends QueryParams {
+  user_id?: string;
+  username?: string;
 }
 
 export function applyPayProvider(data: PayProviderPayload, token?: string) {
@@ -57,4 +73,16 @@ export function queryPayOrder(params: PayQueryParams, token?: string) {
 
 export function closePayOrder(no: string, token?: string) {
   return requestJson<PayCloseResponse>(buildApiPath("/api/emos/api/pay/close", { no }), token, { method: "PUT" });
+}
+
+export function testPayNotify(data: PayTestNotifyPayload, token?: string) {
+  return requestJson<PayTestNotifyResponse>("/api/emos/api/pay/testNotify", token, jsonRequestInit("POST", data));
+}
+
+export function getPayUserCarrot(params: PayUserCarrotParams, token?: string) {
+  return requestJson<PayUserCarrotResponse>(buildApiPath("/api/emos/api/pay/getUserCarrot", params), token);
+}
+
+export function getPayUserInfo(params: PayUserInfoParams, token?: string) {
+  return requestJson<PayUserInfoResponse>(buildApiPath("/api/emos/api/pay/getUserInfo", params), token);
 }

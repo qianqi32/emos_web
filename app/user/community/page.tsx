@@ -32,7 +32,18 @@ function formatSize(size: number) {
 }
 
 function formatDate(dateString: string) {
-  return dateString.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  // API 返回 UTC 时间，需转为北京时间（+8h）
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return dateString.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  }
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const y = bj.getUTCFullYear();
+  const m = String(bj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bj.getUTCDate()).padStart(2, "0");
+  const h = String(bj.getUTCHours()).padStart(2, "0");
+  const min = String(bj.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
 }
 
 function formatDuration(seconds: number) {
@@ -94,6 +105,7 @@ export default function CommunityPage() {
 
   const loadRankData = useCallback(async () => {
     setLoading(true);
+    setMessage(null);
     try {
       if (activeRankTab === "carrot") {
         const data = await getRankCarrot(token);
@@ -118,6 +130,7 @@ export default function CommunityPage() {
   const loadCarrotHistory = useCallback(
     async (mode: "reset" | "append" = "reset", page = 1) => {
       setLoading(true);
+      setMessage(null);
       try {
         const params = {
           type: historyType,

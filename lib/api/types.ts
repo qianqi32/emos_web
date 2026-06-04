@@ -129,16 +129,39 @@ export interface VideoEpisodeItem {
   [key: string]: unknown;
 }
 
+export interface VideoMediaMetadata {
+  streams?: Record<string, unknown>[];
+  format?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface VideoMediaItem {
   media_id: string;
   media_name?: string | null;
   media_status?: string | null;
   media_file_size?: number | null;
   media_file_second?: number | null;
+  media_file_metadata?: VideoMediaMetadata | null;
   user_pseudonym?: string | null;
+  user_id?: string | null;
+  storage_title?: string | null;
   subtitle_count?: number | null;
   is_self_upload?: boolean | null;
   created_at?: string | null;
+  video_id?: number | null;
+  video_type?: string | null;
+  video_title?: string | null;
+  todb_id?: number | null;
+  tmdb_id?: number | null;
+  season_id?: number | null;
+  season_number?: number | null;
+  season_title?: string | null;
+  episode_id?: number | null;
+  episode_number?: number | null;
+  episode_title?: string | null;
+  part_id?: number | null;
+  part_number?: number | null;
+  part_title?: string | null;
   item_id?: string | null;
   video_episode_id?: string | null;
   video_season_id?: string | null;
@@ -283,6 +306,49 @@ export interface WatchVideoCountResponse {
   [key: string]: unknown;
 }
 
+export interface WatchMusicArtist {
+  id: number;
+  name: string;
+  original_name?: string | null;
+  tagline?: string | null;
+  is_adult?: boolean | null;
+  is_virtual?: number | boolean | null;
+  image_profile?: string | null;
+  [key: string]: unknown;
+}
+
+export interface WatchMusicAlbum {
+  id: number;
+  name: string;
+  [key: string]: unknown;
+}
+
+export interface WatchMusicItem {
+  song_id: number;
+  name: string;
+  image_poster?: string | null;
+  image_poster_url?: string | null;
+  description?: string | null;
+  tagline?: string | null;
+  duration?: number | string | null;
+  video_list_id?: number | null;
+  rating?: number | null;
+  is_adult?: boolean | null;
+  person_artists?: WatchMusicArtist[];
+  albums?: WatchMusicAlbum[];
+  remark?: string | null;
+  sort?: number | null;
+  [key: string]: unknown;
+}
+
+export type WatchMusicListResponse = PaginatedResponse<WatchMusicItem>;
+export type WatchMusicSearchResponse = PaginatedResponse<WatchMusicItem>;
+
+export interface WatchMusicCountResponse {
+  count: number;
+  [key: string]: unknown;
+}
+
 export interface WatchDynamicResponse {
   url: string | null;
   [key: string]: unknown;
@@ -373,6 +439,17 @@ export interface ProxyLineItem {
 
 export interface ProxyLineCreateResponse {
   id: number;
+  [key: string]: unknown;
+}
+
+export interface VideoIdentifyResponse {
+  item_type: string;
+  item_id: string;
+  title: string;
+  season_number?: number | null;
+  episode_number?: number | null;
+  video_id?: number | null;
+  tmdb_id?: number | null;
   [key: string]: unknown;
 }
 
@@ -838,4 +915,28 @@ export interface PayQueryResponse {
 
 export interface PayCloseResponse {
   is_close: boolean;
+}
+
+export interface PayTestNotifyResponse {
+  no: string;
+  time_payed: string;
+  price_settle: number;
+  notify_number: number;
+}
+
+export interface PayUserCarrotResponse {
+  carrot: number;
+}
+
+export interface PayUserInfoResponse {
+  user_id: string;
+  username: string;
+  avatar: string | null;
+  is_viewing: boolean;
+  invite_user_id: string | null;
+  size_upload: number;
+  telegram_user_id: string | number | null;
+  is_disable: boolean;
+  created_at: string;
+  [key: string]: unknown;
 }

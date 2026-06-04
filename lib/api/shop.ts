@@ -60,7 +60,7 @@ export interface ShopOrderCreatePayload {
 export interface ShopSellerPayload {
   name: string;
   description: string;
-  cover?: string | null;
+  cover_url?: string | null;
 }
 
 export interface ShopCategoryCreatePayload {
@@ -107,7 +107,7 @@ export function getShopSellerBase(params?: ShopSellerBaseParams, token?: string)
   return requestJson<ShopSellerBase>(buildApiPath("/api/emos/api/shop/seller/base", params), token);
 }
 
-export function applyShopSeller(data: Omit<ShopSellerPayload, "cover">, token?: string) {
+export function applyShopSeller(data: Pick<ShopSellerPayload, "name" | "description">, token?: string) {
   return requestJson<ShopSellerMutationResponse>(
     "/api/emos/api/shop/seller/apply",
     token,

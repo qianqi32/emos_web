@@ -198,9 +198,15 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
     }
 
     const count = Number.parseInt(buyNumber, 10);
+    const orderRemark = remark.trim();
 
     if (!Number.isInteger(count) || count < 1 || count > 230) {
       setMessage("购买数量必须在 1-230 之间");
+      return;
+    }
+
+    if (orderRemark.length > 100) {
+      setMessage("订单备注不能超过 100 字");
       return;
     }
 
@@ -224,6 +230,7 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
       setPendingOrder(null);
       closeProductDetail();
       setMessage(`订单已创建：${result.no}，请在我的订单中支付`);
+      await loadProducts("reset", 1);
     } catch (error) {
       setDialogError(error instanceof Error ? error.message : "下单失败");
     } finally {

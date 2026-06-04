@@ -238,7 +238,7 @@ export default function ProxyPage() {
         </GlassPanel>
       ) : null}
 
-      {message ? <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground shadow-sm backdrop-blur-xl">{message}</div> : null}
+      {message && status !== "error" ? <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground shadow-sm backdrop-blur-xl">{message}</div> : null}
       {status === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载反代线路...</GlassPanel> : null}
       {status === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "反代线路加载失败"}</GlassPanel> : null}
 

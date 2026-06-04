@@ -14,7 +14,8 @@ const SYNC_PAGE_SIZE = 100;
 function readTokens() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(TRAKT_STORAGE_KEY);
+    window.localStorage.removeItem(TRAKT_STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(TRAKT_STORAGE_KEY);
     return raw ? JSON.parse(raw) as TraktTokens : null;
   } catch {
     return null;
@@ -22,11 +23,12 @@ function readTokens() {
 }
 
 function writeTokens(tokens: TraktTokens | null) {
+  window.localStorage.removeItem(TRAKT_STORAGE_KEY);
   if (!tokens) {
-    window.localStorage.removeItem(TRAKT_STORAGE_KEY);
+    window.sessionStorage.removeItem(TRAKT_STORAGE_KEY);
     return;
   }
-  window.localStorage.setItem(TRAKT_STORAGE_KEY, JSON.stringify(tokens));
+  window.sessionStorage.setItem(TRAKT_STORAGE_KEY, JSON.stringify(tokens));
 }
 
 function formatDuration(minutes: number) {
@@ -37,7 +39,17 @@ function formatDuration(minutes: number) {
 }
 
 function formatDateTime(value: string) {
-  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  }
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const y = bj.getUTCFullYear();
+  const m = String(bj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bj.getUTCDate()).padStart(2, "0");
+  const h = String(bj.getUTCHours()).padStart(2, "0");
+  const min = String(bj.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
 }
 
 export default function TraktPage() {
@@ -175,18 +187,18 @@ export default function TraktPage() {
           <div className="rounded-3xl border border-border/60 bg-muted/15 p-4 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
               <div className="flex w-fit max-w-full flex-col justify-between rounded-2xl border border-border/50 bg-background/35 p-4">
-                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 1 · 打开 Trakt 授权页</div>
-                <a href={deviceCode.verification_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-14 max-w-full items-center gap-2 rounded-2xl border border-border/70 px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted/40 hover:text-primary">
-                  <span className="font-mono">{deviceCode.verification_url}</span>
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                </a>
-              </div>
-              <div className="flex w-fit max-w-full flex-col justify-between rounded-2xl border border-border/50 bg-background/35 p-4">
-                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 2 · 复制验证码</div>
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 1 · 复制验证码</div>
                 <button type="button" onClick={copyDeviceCode} className="mt-3 inline-flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-background/60 px-5 font-mono text-3xl font-semibold tracking-widest transition-colors hover:bg-muted/40" title="点击复制验证码">
                   {deviceCode.user_code}
                   <Copy className="h-4 w-4 text-muted-foreground" />
                 </button>
+              </div>
+              <div className="flex w-fit max-w-full flex-col justify-between rounded-2xl border border-border/50 bg-background/35 p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Step 2 · 打开 Trakt 授权页</div>
+                <a href={deviceCode.verification_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-14 max-w-full items-center gap-2 rounded-2xl border border-border/70 px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted/40 hover:text-primary">
+                  <span className="font-mono">{deviceCode.verification_url}</span>
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                </a>
               </div>
             </div>
             <button type="button" onClick={checkBind} disabled={loading} className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50">检查授权</button>

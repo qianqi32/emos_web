@@ -10,16 +10,20 @@ import {
   closePayOrder,
   createPayOrder,
   getPayProviderBase,
+  getPayUserCarrot,
+  getPayUserInfo,
   queryPayOrder,
+  testPayNotify,
   transferPayCarrot,
   updatePayProvider
 } from "@/lib/api/client";
-import type { PayCreateResponse, PayProviderBase, PayQueryResponse } from "@/lib/api/types";
+import type { PayCreateResponse, PayProviderBase, PayQueryResponse, PayUserInfoResponse } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
 type PendingWalletAction =
   | { type: "create"; amount: number; orderName: string; payWay: string; callbackParam: string | null }
   | { type: "close"; no: string }
+  | { type: "test-notify"; no: string }
   | { type: "apply-provider"; name: string; description: string }
   | { type: "update-provider"; name: string; description: string; notifyUrl: string | null }
   | { type: "transfer"; userId: string; carrot: number }
@@ -61,8 +65,17 @@ function providerStatusLabel(status: string | null | undefined) {
 
 function formatTime(value: string | null) {
   if (!value) return "-";
-
-  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  }
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const y = bj.getUTCFullYear();
+  const m = String(bj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bj.getUTCDate()).padStart(2, "0");
+  const h = String(bj.getUTCHours()).padStart(2, "0");
+  const min = String(bj.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
 }
 
 function validateProviderForm(form: ProviderFormState): ProviderFormValidation {
@@ -112,6 +125,9 @@ export default function WalletPage() {
   const [providerStatus, setProviderStatus] = useState<"loading" | "ready" | "error">("loading");
   const [providerForm, setProviderForm] = useState<ProviderFormState>(emptyProviderForm);
   const [transferForm, setTransferForm] = useState<TransferFormState>(emptyTransferForm);
+  const [transferUser, setTransferUser] = useState<PayUserInfoResponse | null>(null);
+  const [transferUserCarrot, setTransferUserCarrot] = useState<number | null>(null);
+  const [transferCheckStatus, setTransferCheckStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [action, setAction] = useState("idle");
   const [pendingAction, setPendingAction] = useState<PendingWalletAction>(null);
   const [message, setMessage] = useState("");
@@ -183,8 +199,8 @@ export default function WalletPage() {
       return;
     }
 
-    if (param.length > 100) {
-      setMessage("回调参数不能超过 100 字");
+    if (param.length > 40) {
+      setMessage("回调参数不能超过 40 字");
       return;
     }
 
@@ -211,6 +227,7 @@ export default function WalletPage() {
       setQueryNo(result.no);
       setPendingAction(null);
       setMessage("支付订单已创建，可打开支付页面完成付款");
+      await handleQueryOrder(result.no);
     } catch (error) {
       setDialogError(error instanceof Error ? error.message : "创建支付订单失败");
     } finally {
@@ -261,11 +278,42 @@ export default function WalletPage() {
     }
   }
 
+  function handleTestNotify(no: string) {
+    if (!isProviderPassed) {
+      setMessage("服务商审核通过后才能测试回调");
+      return;
+    }
+
+    setPendingAction({ type: "test-notify", no });
+    setDialogError("");
+  }
+
+  async function submitTestNotify(no: string) {
+    setAction("test-notify");
+    setMessage("");
+
+    try {
+      const result = await testPayNotify({ no }, token);
+      setPendingAction(null);
+      setMessage(`测试回调已触发，通知次数 ${result.notify_number}，结算 ${result.price_settle} 萝卜`);
+      await handleQueryOrder(no);
+    } catch (error) {
+      setDialogError(error instanceof Error ? error.message : "测试回调失败");
+    } finally {
+      setAction("idle");
+    }
+  }
+
   function handleProviderSubmit() {
     const validated = validateProviderForm(providerForm);
 
     if ("error" in validated) {
       setMessage(validated.error);
+      return;
+    }
+
+    if (provider?.status && !isProviderPassed) {
+      setMessage("服务商审核通过后才能更新资料");
       return;
     }
 
@@ -322,6 +370,33 @@ export default function WalletPage() {
     setDialogError("");
   }
 
+  async function handleCheckTransferUser() {
+    const targetUserId = transferForm.userId.trim();
+
+    if (!targetUserId) {
+      setMessage("请输入收款用户 ID");
+      return;
+    }
+
+    setTransferCheckStatus("loading");
+    setTransferUser(null);
+    setTransferUserCarrot(null);
+    setMessage("");
+
+    try {
+      const [userInfo, carrotInfo] = await Promise.all([
+        getPayUserInfo({ user_id: targetUserId }, token),
+        getPayUserCarrot({ user_id: targetUserId }, token)
+      ]);
+      setTransferUser(userInfo);
+      setTransferUserCarrot(carrotInfo.carrot);
+      setTransferCheckStatus("ready");
+    } catch (error) {
+      setTransferCheckStatus("error");
+      setMessage(error instanceof Error ? error.message : "收款用户核验失败");
+    }
+  }
+
   async function submitTransfer(userId: string, carrot: number) {
     setAction("transfer");
     setMessage("");
@@ -330,6 +405,9 @@ export default function WalletPage() {
       const result = await transferPayCarrot({ user_id: userId, carrot }, token);
       setPendingAction(null);
       setTransferForm(emptyTransferForm);
+      setTransferUser(null);
+      setTransferUserCarrot(null);
+      setTransferCheckStatus("idle");
       setMessage(`转账成功，实际扣除 ${result.deduct ?? carrot} 萝卜，当前剩余 ${result.carrot ?? "-"} 萝卜`);
       await loadProvider();
     } catch (error) {
@@ -350,6 +428,10 @@ export default function WalletPage() {
 
     if (pendingAction?.type === "close") {
       return `将关闭支付订单 ${pendingAction.no}，只有未支付订单可关闭。`;
+    }
+
+    if (pendingAction?.type === "test-notify") {
+      return `将对支付订单 ${pendingAction.no} 触发一次测试回调，用于验证服务商通知地址是否可用。`;
     }
 
     if (pendingAction?.type === "apply-provider") {
@@ -476,7 +558,12 @@ export default function WalletPage() {
             <div className="mt-5 grid gap-3">
               <input
                 value={transferForm.userId}
-                onChange={(event) => setTransferForm((current) => ({ ...current, userId: event.target.value }))}
+                onChange={(event) => {
+                  setTransferForm((current) => ({ ...current, userId: event.target.value }));
+                  setTransferUser(null);
+                  setTransferUserCarrot(null);
+                  setTransferCheckStatus("idle");
+                }}
                 placeholder="收款用户 ID"
                 className={inputClass}
               />
@@ -489,6 +576,25 @@ export default function WalletPage() {
                 placeholder="转账萝卜"
                 className={inputClass}
               />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCheckTransferUser()}
+                  disabled={transferCheckStatus === "loading"}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:opacity-50"
+                >
+                  {transferCheckStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  核验用户
+                </button>
+              </div>
+              {transferUser ? (
+                <div className="rounded-2xl border border-border/60 bg-muted/10 p-4 text-xs leading-6 text-muted-foreground">
+                  <div>用户：<span className="font-medium text-foreground">{transferUser.username}</span></div>
+                  <div>ID：<span className="font-mono text-foreground">{transferUser.user_id}</span></div>
+                  <div>可用萝卜：<span className="font-mono text-foreground">{transferUserCarrot ?? "-"}</span></div>
+                  <div>状态：<span className="text-foreground">{transferUser.is_disable ? "已禁用" : "正常"}</span></div>
+                </div>
+              ) : null}
               <button
                 type="button"
                 onClick={handleTransferSubmit}
@@ -544,8 +650,8 @@ export default function WalletPage() {
               </div>
               <input
                 value={callbackParam}
-                onChange={(event) => setCallbackParam(event.target.value.slice(0, 100))}
-                placeholder="回调参数（可选）"
+                onChange={(event) => setCallbackParam(event.target.value.slice(0, 40))}
+                placeholder="回调参数（可选，40 字内）"
                 className={inputClass}
               />
             </div>
@@ -638,17 +744,28 @@ export default function WalletPage() {
                     <span className="font-mono text-foreground">{queryResult.notify_status}</span>
                   </div>
                 </div>
-                {queryResult.pay_status === "default" ? (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {queryResult.pay_status === "default" ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleCloseOrder(queryResult.no)}
+                      disabled={action === "close"}
+                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:opacity-50"
+                    >
+                      {action === "close" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                      关闭订单
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => void handleCloseOrder(queryResult.no)}
-                    disabled={action === "close"}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:opacity-50"
+                    onClick={() => handleTestNotify(queryResult.no)}
+                    disabled={action === "test-notify"}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:opacity-50"
                   >
-                    {action === "close" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                    关闭订单
+                    {action === "test-notify" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    测试回调
                   </button>
-                ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -662,14 +779,17 @@ export default function WalletPage() {
             ? "确认创建支付订单"
             : pendingAction?.type === "close"
               ? "确认关闭支付订单"
-              : pendingAction?.type === "transfer"
-                ? "确认服务商转账"
-                : pendingAction?.type === "apply-provider"
-                  ? "确认申请支付服务商"
-                  : "确认更新服务商信息"
+              : pendingAction?.type === "test-notify"
+                ? "确认测试支付回调"
+                : pendingAction?.type === "transfer"
+                  ? "确认服务商转账"
+                  : pendingAction?.type === "apply-provider"
+                    ? "确认申请支付服务商"
+                    : "确认更新服务商信息"
         }
         description={pendingDescription()}
-        confirmLabel={pendingAction?.type === "close" ? "关闭订单" : pendingAction?.type === "transfer" ? "确认转账" : pendingAction?.type === "apply-provider" ? "提交申请" : pendingAction?.type === "update-provider" ? "更新信息" : "创建订单"}
+        confirmLabel={pendingAction?.type === "close" ? "关闭订单" : pendingAction?.type === "test-notify" ? "触发回调" : pendingAction?.type === "transfer" ? "确认转账" : pendingAction?.type === "apply-provider" ? "提交申请" : pendingAction?.type === "update-provider" ? "更新信息" : "创建订单"}
+        confirmText={pendingAction?.type === "apply-provider" ? "确认申请" : pendingAction?.type === "transfer" ? "确认转账" : undefined}
         error={dialogError}
         loading={action !== "idle" && action !== "query"}
         tone={pendingAction?.type === "close" ? "danger" : "default"}
@@ -679,6 +799,8 @@ export default function WalletPage() {
             void submitCreateOrder(pendingAction.amount, pendingAction.orderName, pendingAction.payWay, pendingAction.callbackParam);
           } else if (pendingAction?.type === "close") {
             void submitCloseOrder(pendingAction.no);
+          } else if (pendingAction?.type === "test-notify") {
+            void submitTestNotify(pendingAction.no);
           } else if (pendingAction?.type === "apply-provider" || pendingAction?.type === "update-provider") {
             void submitProvider(pendingAction);
           } else if (pendingAction?.type === "transfer") {

@@ -274,7 +274,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      <PageToast message={watchStatus === "error" ? "" : message} onClose={() => setMessage("")} />
+      <PageToast message={watchStatus === "error" || videoStatus === "error" ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-8">
         <button type="button" onClick={() => router.push("/user/watchlist")} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
@@ -359,7 +359,7 @@ export default function WatchlistDetailPage({ params }: { params: Promise<{ id: 
               </GlassPanel>
 
               {videoStatus === "loading" ? <GlassPanel className="p-8 text-sm text-muted-foreground">正在加载视频列表...</GlassPanel> : null}
-              {videoStatus === "error" ? <GlassPanel className="p-8 text-sm text-danger">视频列表加载失败</GlassPanel> : null}
+              {videoStatus === "error" ? <GlassPanel className="p-8 text-sm text-danger">{message || "视频列表加载失败"}</GlassPanel> : null}
               {videoStatus === "ready" && videos.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">片单暂无视频{canEditVideos ? "，可切换到「添加视频」标签添加" : ""}</GlassPanel> : null}
 
               {videoStatus === "ready" && videos.length > 0 ? (

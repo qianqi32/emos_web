@@ -38,6 +38,7 @@ import { useUserConsole } from "@/components/dashboard/user-console-context";
 type ActiveTab = "products" | "orders" | "seller" | "categories" | "manage-products" | "merchant-orders";
 
 type PendingShopAction =
+  | { type: "apply-seller"; name: string; description: string }
   | { type: "create-order"; count: number; totalPrice: number; product: ShopProductInfo }
   | { type: "pay-order"; orderNo: string; price: number }
   | { type: "close-order"; orderNo: string }
@@ -203,13 +204,13 @@ export default function ShopPage() {
   const [pendingAction, setPendingAction] = useState<PendingShopAction>(null);
   const [message, setMessage] = useState("");
   const [dialogError, setDialogError] = useState("");
-  const sellerSelfId = sellerSelf?.seller_id;
+  const sellerSelfId = sellerSelf?.status === "pass" ? sellerSelf.seller_id : undefined;
 
   const loadSellerSelf = useCallback(async () => {
     try {
       const result = await getShopSellerBase({}, token);
       setSellerSelf(result);
-      setSellerForm({ name: result.name || "", description: result.description || "", cover: result.cover || "" });
+      setSellerForm({ name: result.name || "", description: result.description || "", cover: result.cover_url || "" });
     } catch {
       setSellerSelf(null);
       setSellerForm(emptySellerForm);
@@ -499,9 +500,15 @@ export default function ShopPage() {
     }
 
     const count = Number.parseInt(buyNumber, 10);
+    const orderRemark = remark.trim();
 
     if (!Number.isInteger(count) || count < 1 || count > 230) {
       setMessage("购买数量必须在 1-230 之间");
+      return;
+    }
+
+    if (orderRemark.length > 100) {
+      setMessage("订单备注不能超过 100 字");
       return;
     }
 
@@ -612,15 +619,29 @@ export default function ShopPage() {
 
     try {
       if (sellerSelf?.seller_id) {
-        await updateShopSeller({ name, description, cover: sellerForm.cover.trim() || null }, token);
+        await updateShopSeller({ name, description, cover_url: sellerForm.cover.trim() || null }, token);
         setMessage("店铺信息已更新");
+        await loadSellerSelf();
       } else {
-        await applyShopSeller({ name, description }, token);
-        setMessage("申请已提交，请等待审核");
+        openDialog({ type: "apply-seller", name, description });
       }
-      await loadSellerSelf();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "店铺提交失败");
+    } finally {
+      setAction("idle");
+    }
+  }
+
+  async function submitApplySeller(name: string, description: string) {
+    setAction("seller");
+
+    try {
+      await applyShopSeller({ name, description }, token);
+      setMessage("申请已提交，请等待审核");
+      setPendingAction(null);
+      await loadSellerSelf();
+    } catch (error) {
+      setDialogError(error instanceof Error ? error.message : "店铺申请失败");
     } finally {
       setAction("idle");
     }
@@ -705,7 +726,7 @@ export default function ShopPage() {
       setProductForm({
         productId: product.product_id,
         categoryId: String(product.category_id),
-        cover: product.cover || "",
+        cover: product.cover_url || "",
         name: product.name || "",
         description: product.description || "",
         exchangeWay: product.exchange_way || "",
@@ -930,7 +951,8 @@ export default function ShopPage() {
     { key: "merchant-orders", label: "商户订单", sellerOnly: true },
   ];
 
-  const isSeller = Boolean(sellerSelf?.seller_id);
+  const isSeller = sellerSelf?.status === "pass";
+  const hasInlineError = productStatus === "error" || orderStatus === "error" || merchantProductStatus === "error" || merchantOrderStatus === "error";
 
   function openDialog(action: PendingShopAction, input = "") {
     setDialogInput(input);
@@ -940,7 +962,7 @@ export default function ShopPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      <PageToast message={message} onClose={() => setMessage("")} />
+      <PageToast message={hasInlineError ? "" : message} onClose={() => setMessage("")} />
       <GlassPanel className="p-5 sm:p-6 lg:p-7">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           <ShoppingBag className="h-3.5 w-3.5" />
@@ -1143,7 +1165,7 @@ export default function ShopPage() {
               loading={merchantProductStatus === "loading"}
               onPageChange={setMerchantProductPage}
             />
-      {merchantProductStatus === "loading" ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">加载商品中...</GlassPanel> : null}{merchantProducts.map((product) => {
+      {merchantProductStatus === "loading" ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">加载商品中...</GlassPanel> : null}{merchantProductStatus === "error" ? <GlassPanel className="p-6 text-sm text-danger">{message || "商户商品加载失败"}</GlassPanel> : null}{merchantProducts.map((product) => {
         const soldOut = isSoldOut(product);
         const canToggle = product.is_up || !soldOut;
 
@@ -1182,6 +1204,7 @@ export default function ShopPage() {
             onPageChange={setMerchantOrderPage}
           />
           {merchantOrderStatus === "loading" ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">加载商户订单中...</GlassPanel> : null}
+          {merchantOrderStatus === "error" ? <GlassPanel className="p-6 text-sm text-danger">{message || "商户订单加载失败"}</GlassPanel> : null}
           {merchantOrderStatus === "ready" && merchantOrders.length === 0 ? <GlassPanel className="p-10 text-center text-sm text-muted-foreground">暂无商户订单</GlassPanel> : null}
           {merchantOrders.map((order) => <GlassPanel key={order.order_no} className="p-4 sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{order.order_title}</div><span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground">{statusLabel(order.status_pay)}</span><span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground">{order.time_delivery ? "已发货" : "未发货"}</span></div><div className="mt-2 text-xs text-muted-foreground">{order.order_no}</div><div className="mt-2 text-xs text-muted-foreground">数量 {order.buy_number} · {formatCarrot(order.price_order)} · 买家备注 {order.remark_user || "无"}</div>{order.remark_shop ? <div className="mt-2 text-xs text-muted-foreground">商户备注：{order.remark_shop}</div> : null}</div><div className="flex flex-wrap gap-2">{order.status_pay === "paid" && !order.time_delivery ? <button type="button" onClick={() => openDialog({ type: "deliver-order", orderNo: order.order_no })} disabled={action === order.order_no} className="inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-xs font-semibold text-background hover:opacity-90 disabled:opacity-50">发货</button> : null}<button type="button" onClick={() => openDialog({ type: "remark-order", orderNo: order.order_no }, order.remark_shop || "")} disabled={action === order.order_no} className="inline-flex h-10 items-center justify-center rounded-full border border-border/70 px-4 text-xs font-semibold hover:bg-muted/40 disabled:opacity-50">备注</button><button type="button" onClick={() => openDialog({ type: "delete-merchant-order", orderNo: order.order_no })} disabled={action === order.order_no} className="inline-flex h-10 items-center justify-center rounded-full border border-danger/40 px-4 text-xs font-semibold text-danger hover:bg-danger/10 disabled:opacity-50">删除</button></div></div></GlassPanel>)}
         </div>
@@ -1204,7 +1227,8 @@ export default function ShopPage() {
         onInputChange={setDialogInput}
         onCancel={() => { setPendingAction(null); setDialogInput(""); setDialogError(""); }}
         onConfirm={() => {
-          if (pendingAction?.type === "create-order") void submitCreateOrder(pendingAction.product, pendingAction.count);
+          if (pendingAction?.type === "apply-seller") void submitApplySeller(pendingAction.name, pendingAction.description);
+          else if (pendingAction?.type === "create-order") void submitCreateOrder(pendingAction.product, pendingAction.count);
           else if (pendingAction?.type === "pay-order") void submitPayOrder(pendingAction.orderNo);
           else if (pendingAction?.type === "close-order") void submitCloseOrder(pendingAction.orderNo);
           else if (pendingAction?.type === "delete-user-order") void submitDeleteUserOrder(pendingAction.orderNo);
@@ -1387,6 +1411,7 @@ function dialogTitle(action: PendingShopAction) {
 }
 
 function dialogDescription(action: PendingShopAction) {
+  if (action?.type === "apply-seller") return `将申请成为商户并扣除 3000 萝卜，店铺名称为「${action.name}」。`;
   if (action?.type === "create-order") return `将创建「${action.product.name}」× ${action.count} 的订单，合计 ${action.totalPrice} 萝卜。`;
   if (action?.type === "pay-order") return `将支付订单 ${action.orderNo}，扣除 ${action.price} 萝卜。`;
   if (action?.type === "close-order") return `将关闭订单 ${action.orderNo}，只有未支付订单可关闭。`;

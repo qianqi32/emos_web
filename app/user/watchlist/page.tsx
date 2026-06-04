@@ -42,7 +42,7 @@ const EMPTY_FORM: WatchFormState = {
   name: "",
   description: "",
   is_public: true,
-  point: "0",
+  point: "",
   tags: "",
   is_show_empty: true,
   image_poster_url: ""
@@ -235,7 +235,8 @@ export default function WatchlistPage() {
   function handleSave() {
     const name = form.name.trim();
     const description = form.description.trim();
-    const point = Number(form.point || 0);
+    const pointText = form.point.trim();
+    const point = Number(pointText);
     const imagePosterUrl = form.image_poster_url.trim();
 
     if (!name || !description) {
@@ -243,8 +244,8 @@ export default function WatchlistPage() {
       return;
     }
 
-    if (!Number.isFinite(point) || point < 0 || point > 50000) {
-      setMessage("所需萝卜必须在 0 到 50000 之间");
+    if (!pointText || !Number.isFinite(point) || point < 0 || point > 50000) {
+      setMessage("请填写 0 到 50000 之间的所需萝卜");
       return;
     }
 
@@ -421,6 +422,10 @@ export default function WatchlistPage() {
       {formOpen ? (
         <GlassPanel className="p-5 sm:p-6">
           <div className="grid gap-3 lg:grid-cols-2">
+            <select value={form.type} onChange={(event) => updateForm("type", event.target.value)} disabled={form.id !== null} className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/15 disabled:opacity-50">
+              <option value="video">影视片单</option>
+              <option value="music">音乐片单</option>
+            </select>
             <input value={form.name} onChange={(event) => updateForm("name", event.target.value)} placeholder="片单名称" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             <input value={form.point} onChange={(event) => updateForm("point", event.target.value)} placeholder="所需萝卜" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />
             <input value={form.tags} onChange={(event) => updateForm("tags", event.target.value)} placeholder="标签，使用英文逗号分隔" className="h-11 rounded-full border border-border/70 bg-background/50 px-4 text-sm outline-none placeholder:text-muted-foreground/55 focus:border-primary/30 focus:ring-2 focus:ring-primary/15" />

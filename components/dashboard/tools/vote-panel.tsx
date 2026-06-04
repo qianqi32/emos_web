@@ -9,7 +9,17 @@ import type { VoteResultResponse } from "@/lib/api/types";
 import { useUserConsole } from "@/components/dashboard/user-console-context";
 
 function formatDateTime(value: string) {
-  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "").slice(0, 16);
+  }
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const y = bj.getUTCFullYear();
+  const m = String(bj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bj.getUTCDate()).padStart(2, "0");
+  const h = String(bj.getUTCHours()).padStart(2, "0");
+  const min = String(bj.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
 }
 
 export function VotePanel() {

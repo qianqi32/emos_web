@@ -1,5 +1,5 @@
 import { buildApiPath, jsonRequestInit, type QueryParams, requestJson } from "@/lib/api/request";
-import type { ApiEntity, MutationResponse, RecordChangeResponse, RecordListResponse, RecordRequestResponse, VideoEpisodeItem, VideoListResponse, VideoSeasonItem } from "@/lib/api/types";
+import type { ApiEntity, MutationResponse, RecordChangeResponse, RecordListResponse, RecordRequestResponse, VideoEpisodeItem, VideoIdentifyResponse, VideoListResponse, VideoSeasonItem } from "@/lib/api/types";
 
 export interface VideoListParams extends QueryParams {
   tmdb_id?: string;
@@ -62,6 +62,14 @@ export function syncVideo(params?: VideoSyncParams, token?: string) {
 
 export function getVideoTree(params?: VideoTreeParams, token?: string) {
   return requestJson<ApiEntity[]>(buildApiPath("/api/emos/api/video/tree", params), token);
+}
+
+export interface VideoIdentifyPayload {
+  filename: string;
+}
+
+export function identifyVideo(data: VideoIdentifyPayload, token?: string) {
+  return requestJson<VideoIdentifyResponse>("/api/emos/api/video/identify", token, jsonRequestInit("POST", data));
 }
 
 export function getVideoId(params: VideoIdParams, token?: string) {

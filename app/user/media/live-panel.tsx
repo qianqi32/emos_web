@@ -15,7 +15,12 @@ const CHANNEL_PAGE_SIZE = 36;
 const MEDIA_PAGE_SIZE = 80;
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
-type PendingAction = { type: "delete-channel"; channel: LiveListItem } | { type: "delete-media"; media: LiveMediaItem } | { type: "replace-medias" } | null;
+type PendingAction =
+  | { type: "add-media"; media: LiveMediaPayload }
+  | { type: "delete-channel"; channel: LiveListItem }
+  | { type: "delete-media"; media: LiveMediaItem }
+  | { type: "replace-medias" }
+  | null;
 
 interface LoadError {
   title: string;
@@ -49,17 +54,15 @@ function createLoadError(error: unknown, fallback: string): LoadError {
 
 function formatDate(value: string | null) {
   if (!value) return "--";
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const y = bj.getUTCFullYear();
+  const m = String(bj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bj.getUTCDate()).padStart(2, "0");
+  const h = String(bj.getUTCHours()).padStart(2, "0");
+  const min = String(bj.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
 }
 
 function emptyChannelForm(): ChannelFormState {
@@ -74,6 +77,11 @@ function emptyChannelForm(): ChannelFormState {
 
 function isUrlLike(value: string) {
   return /^https?:\/\//i.test(value.trim());
+}
+
+function isM3u8Url(value: string) {
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed) && /\.m3u8(?:$|[?#])/i.test(trimmed);
 }
 
 function StatusMessage({ error }: { error: LoadError }) {
@@ -318,6 +326,11 @@ export function LivePanel() {
       return;
     }
 
+    if (!isM3u8Url(pathUrl)) {
+      setFormError("请输入有效的 http(s) m3u8 地址");
+      return;
+    }
+
     const payload: LiveMediaPayload = {
       live_list_id: activeChannel.id,
       name,
@@ -325,32 +338,30 @@ export function LivePanel() {
       path_url: pathUrl,
     };
 
-    setMutating(true);
     setFormError("");
-
-    try {
-      const result = await addLiveMedia(payload, token);
-      setMessage(`直播源已添加，消耗后剩余萝卜 ${result.carrot}`);
-      setMediaForm({ name: "", pathUrl: "" });
-      await loadMedias();
-      await loadChannels();
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : "直播源添加失败");
-    } finally {
-      setMutating(false);
-    }
+    setPending({ type: "add-media", media: payload });
   }
 
   function parseBulkMedias() {
-    return bulkText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [name, pathUrl] = line.split("|").map((item) => item.trim());
-        return name && pathUrl ? { name, path_type: "m3u8" as const, path_url: pathUrl } : null;
-      })
-      .filter((item): item is { name: string; path_type: "m3u8"; path_url: string } => item !== null);
+    const lines = bulkText.split("\n").map((line) => line.trim()).filter(Boolean);
+    const items: Array<{ name: string; path_type: "m3u8"; path_url: string }> = [];
+
+    for (const [index, line] of lines.entries()) {
+      const parts = line.split("|").map((item) => item.trim());
+      const [name, pathUrl] = parts;
+
+      if (parts.length !== 2 || !name || !pathUrl) {
+        return { error: `第 ${index + 1} 行格式错误，请使用：名称 | m3u8地址`, items: [] };
+      }
+
+      if (!isM3u8Url(pathUrl)) {
+        return { error: `第 ${index + 1} 行不是有效的 http(s) m3u8 地址`, items: [] };
+      }
+
+      items.push({ name, path_type: "m3u8", path_url: pathUrl });
+    }
+
+    return { error: "", items };
   }
 
   async function confirmPending() {
@@ -360,6 +371,15 @@ export function LivePanel() {
     setFormError("");
 
     try {
+      if (pending.type === "add-media") {
+        const result = await addLiveMedia(pending.media, token);
+        setMessage(`直播源已添加，消耗后剩余萝卜 ${result.carrot}`);
+        setMediaForm({ name: "", pathUrl: "" });
+        setPending(null);
+        await loadMedias();
+        await loadChannels();
+      }
+
       if (pending.type === "delete-channel") {
         await deleteLiveList(pending.channel.id, token);
         setMessage("直播频道已删除");
@@ -383,8 +403,12 @@ export function LivePanel() {
           throw new Error("请先选择频道");
         }
 
-        const mediasPayload = parseBulkMedias();
-        const result = await updateLiveMedia({ live_list_id: activeChannel.id, medias: mediasPayload }, token);
+        const parsed = parseBulkMedias();
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+
+        const result = await updateLiveMedia({ live_list_id: activeChannel.id, medias: parsed.items }, token);
         setMessage(`直播源已批量更新，删除 ${result.delete_count} 条旧源`);
         setBulkText("");
         setPending(null);
@@ -407,7 +431,13 @@ export function LivePanel() {
     }
   }
 
-  const pendingDescription = pending?.type === "delete-channel" ? `确认删除直播频道「${pending.channel.title}」？官方直播不可删除，接口会返回实际权限结果。` : pending?.type === "delete-media" ? `确认删除直播源「${pending.media.name}」？` : "确认按文本框内容批量替换自己添加的直播源？留空会删除自己添加的所有源。";
+  const pendingDescription = pending?.type === "add-media"
+    ? `确认向当前频道添加直播源「${pending.media.name}」？该操作可能会消耗萝卜。`
+    : pending?.type === "delete-channel"
+      ? `确认删除直播频道「${pending.channel.title}」？官方直播不可删除，接口会返回实际权限结果。`
+      : pending?.type === "delete-media"
+        ? `确认删除直播源「${pending.media.name}」？`
+        : "确认按文本框内容批量替换自己添加的直播源？留空会删除自己添加的所有源。";
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -632,7 +662,18 @@ export function LivePanel() {
         </div>
       ) : null}
 
-      <ConfirmDialog open={pending !== null} title="确认直播管理操作" description={pendingDescription} confirmLabel="确认执行" tone={pending?.type === "replace-medias" ? "default" : "danger"} loading={mutating} error={formError} onConfirm={() => void confirmPending()} onCancel={() => setPending(null)} />
+      <ConfirmDialog
+        open={pending !== null}
+        title="确认直播管理操作"
+        description={pendingDescription}
+        confirmLabel="确认执行"
+        confirmText={pending?.type === "replace-medias" ? "确认更新" : undefined}
+        tone={pending?.type === "replace-medias" || pending?.type === "add-media" ? "default" : "danger"}
+        loading={mutating}
+        error={formError}
+        onConfirm={() => void confirmPending()}
+        onCancel={() => setPending(null)}
+      />
     </div>
   );
 }
