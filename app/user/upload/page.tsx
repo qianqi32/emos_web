@@ -34,6 +34,7 @@ interface QueueUploadItem extends Omit<PendingUploadFile, "status"> {
   status: QueueStatus;
   progress: number;
   uploadedBytes: number;
+  speedBytesPerSecond: number;
   error: string;
   result: string;
 }
@@ -93,6 +94,14 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
 }
 
+function formatUploadSpeed(bytesPerSecond: number) {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
+    return "--/s";
+  }
+
+  return `${formatFileSize(bytesPerSecond)}/s`;
+}
+
 function numericItemId(itemId: string) {
   const value = itemId.replace(/[^0-9]/g, "");
   const parsed = Number(value);
@@ -129,7 +138,7 @@ function statusLabel(status: QueueStatus | PendingStatus) {
   return labels[status] || status;
 }
 
-function uploadFile(file: File, uploadUrl: string, onProgress: (progress: number, uploadedBytes: number) => void) {
+function uploadFile(file: File, uploadUrl: string, onProgress: (progress: number, uploadedBytes: number) => void, onRequest?: (request: XMLHttpRequest) => void) {
   return new Promise<void>((resolve, reject) => {
     let uploadedSize = 0;
 
@@ -144,6 +153,7 @@ function uploadFile(file: File, uploadUrl: string, onProgress: (progress: number
       const chunkEnd = Math.min(uploadedSize + CHUNK_SIZE, file.size);
       const chunk = file.slice(chunkStart, chunkEnd);
       const request = new XMLHttpRequest();
+      onRequest?.(request);
 
       request.open("PUT", uploadUrl.replace(/[`]/g, ""));
       request.setRequestHeader("Accept", "*/*");
@@ -170,6 +180,7 @@ function uploadFile(file: File, uploadUrl: string, onProgress: (progress: number
       };
 
       request.onerror = () => reject(new Error("上传失败：网络错误"));
+      request.onabort = () => reject(new Error("上传已中断"));
       request.ontimeout = () => reject(new Error("上传失败：请求超时"));
       request.send(chunk);
     };
@@ -181,6 +192,8 @@ function uploadFile(file: File, uploadUrl: string, onProgress: (progress: number
 export default function UploadPage() {
   const { token, user } = useUserConsole();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadRequestRef = useRef<XMLHttpRequest | null>(null);
+  const stopUploadRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<PendingUploadFile[]>([]);
   const [queue, setQueue] = useState<QueueUploadItem[]>([]);
   const [message, setMessage] = useState("");
@@ -352,6 +365,7 @@ export default function UploadPage() {
         status: "queue",
         progress: 0,
         uploadedBytes: 0,
+        speedBytesPerSecond: 0,
         error: "",
         result: ""
       }))
@@ -411,9 +425,21 @@ export default function UploadPage() {
       throw new Error("上传 token 返回不完整");
     }
 
+    let lastUploadedBytes = 0;
+    let lastProgressAt = Date.now();
+
     await uploadFile(item.file, uploadToken.data.upload_url, (progress, uploadedBytes) => {
-      setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, progress, uploadedBytes } : entry));
+      const now = Date.now();
+      const elapsedSeconds = Math.max((now - lastProgressAt) / 1000, 0.001);
+      const speedBytesPerSecond = Math.max((uploadedBytes - lastUploadedBytes) / elapsedSeconds, 0);
+      lastUploadedBytes = uploadedBytes;
+      lastProgressAt = now;
+      setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, progress, uploadedBytes, speedBytesPerSecond } : entry));
+    }, (request) => {
+      uploadRequestRef.current = request;
     });
+
+    uploadRequestRef.current = null;
 
     if (item.kind === "video") {
       const result = await saveVideoUpload({ item_type: itemTypeFromId(item.itemId), item_id: numericId, file_id: uploadToken.file_id }, token);
@@ -437,30 +463,65 @@ export default function UploadPage() {
     }
 
     void (async () => {
+      stopUploadRef.current = false;
       setActiveAction("upload");
       setMessage("");
 
       for (const item of queuedItems) {
-        setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "uploading", error: "", result: "" } : entry));
+        if (stopUploadRef.current) {
+          break;
+        }
+
+        setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "uploading", error: "", result: "", speedBytesPerSecond: 0 } : entry));
 
         try {
           const result = await uploadQueueItem(item);
-          setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "success", progress: 100, uploadedBytes: entry.file.size, result } : entry));
+          if (stopUploadRef.current) {
+            break;
+          }
+          setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "success", progress: 100, uploadedBytes: entry.file.size, speedBytesPerSecond: 0, result } : entry));
         } catch (error) {
-          setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "error", error: error instanceof Error ? error.message : "上传失败" } : entry));
+          if (stopUploadRef.current) {
+            break;
+          }
+          setQueue((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "error", speedBytesPerSecond: 0, error: error instanceof Error ? error.message : "上传失败" } : entry));
         }
       }
 
+      const wasStopped = stopUploadRef.current;
+      uploadRequestRef.current = null;
+      stopUploadRef.current = false;
       setActiveAction("idle");
-      setMessage("上传队列处理完成");
+      if (!wasStopped) {
+        setMessage("上传队列处理完成");
+      }
     })();
   }
 
+  function clearQueue() {
+    stopUploadRef.current = true;
+    uploadRequestRef.current?.abort();
+    uploadRequestRef.current = null;
+    setQueue([]);
+    setActiveAction("idle");
+    setMessage("上传队列已清空");
+  }
+
   function retryQueueItem(id: string) {
-    setQueue((current) => current.map((item) => item.id === id ? { ...item, status: "queue", progress: 0, uploadedBytes: 0, error: "", result: "" } : item));
+    setQueue((current) => current.map((item) => item.id === id ? { ...item, status: "queue", progress: 0, uploadedBytes: 0, speedBytesPerSecond: 0, error: "", result: "" } : item));
   }
 
   function removeQueueItem(id: string) {
+    const target = queue.find((item) => item.id === id);
+
+    if (target?.status === "uploading") {
+      stopUploadRef.current = true;
+      uploadRequestRef.current?.abort();
+      uploadRequestRef.current = null;
+      setActiveAction("idle");
+      setMessage("上传已中断，队列项已删除");
+    }
+
     setQueue((current) => current.filter((item) => item.id !== id));
   }
 
@@ -580,7 +641,7 @@ export default function UploadPage() {
               {activeAction === "upload" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               开始上传
             </button>
-            <button type="button" onClick={() => setQueue([])} disabled={activeAction !== "idle"} className="inline-flex h-10 items-center justify-center rounded-full border border-border/70 px-4 text-sm font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50">清空</button>
+            <button type="button" onClick={clearQueue} className="inline-flex h-10 items-center justify-center rounded-full border border-border/70 px-4 text-sm font-semibold transition-colors hover:bg-muted/40">清空</button>
           </div>
         </div>
 
@@ -589,20 +650,26 @@ export default function UploadPage() {
           {queue.map((item) => (
             <div key={item.id} className="rounded-3xl border border-border/60 bg-background/40 p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     {item.kind === "video" ? <Film className="h-4 w-4 text-muted-foreground" /> : <FileText className="h-4 w-4 text-muted-foreground" />}
                     <h3 className="truncate text-sm font-semibold">{item.file.name}</h3>
                     <span className="rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">{item.itemType} · {item.itemId}</span>
                     <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">{statusLabel(item.status)}</span>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">{item.title} · {formatFileSize(item.file.size)} · 已上传 {formatFileSize(item.uploadedBytes)}</p>
+                  <div className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                    <span className="min-w-0 truncate">{item.title}</span>
+                    <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 text-right">
+                      <span>已上传： <span className="font-mono text-foreground">{formatFileSize(item.uploadedBytes)} / {formatFileSize(item.file.size)}</span></span>
+                      <span>上传速率： <span className="font-mono text-foreground">{formatUploadSpeed(item.speedBytesPerSecond)}</span></span>
+                    </div>
+                  </div>
                   {item.error ? <p className="mt-2 text-xs text-danger">{item.error}</p> : null}
                   {item.result ? <p className="mt-2 text-xs text-success">{item.result}</p> : null}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   {item.status === "error" ? <button type="button" onClick={() => retryQueueItem(item.id)} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40"><RefreshCw className="h-3.5 w-3.5" /></button> : null}
-                  <button type="button" onClick={() => removeQueueItem(item.id)} disabled={item.status === "uploading"} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => removeQueueItem(item.id)} className="inline-flex h-9 items-center justify-center rounded-full border border-border/70 px-3 text-xs font-semibold transition-colors hover:bg-muted/40"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted/30">

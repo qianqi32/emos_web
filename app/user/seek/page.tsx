@@ -102,6 +102,8 @@ function canCancelClaim(item: SeekListItem, username: string) {
 export default function SeekPage() {
   const { token, user } = useUserConsole();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollYRef = useRef(0);
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
   const [items, setItems] = useState<SeekListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [nextPage, setNextPage] = useState(1);
@@ -175,6 +177,8 @@ export default function SeekPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      setCanAutoLoadMore(false);
+      initialScrollYRef.current = window.scrollY;
       void loadSeeks("reset", 1);
     }, 0);
 
@@ -182,21 +186,35 @@ export default function SeekPage() {
   }, [loadSeeks]);
 
   useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
 
-    if (!node || !hasMore || status !== "ready" || loadingMore) {
+    if (!node || !hasMore || status !== "ready" || loadingMore || !canAutoLoadMore) {
       return;
     }
 
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
+        setCanAutoLoadMore(false);
         void loadSeeks("append", nextPage);
       }
-    }, { rootMargin: "420px" });
+    }, { rootMargin: "120px" });
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, loadSeeks, loadingMore, nextPage, status]);
+  }, [canAutoLoadMore, hasMore, loadSeeks, loadingMore, nextPage, status]);
 
   function runAction(actionName: string, executor: () => Promise<string>) {
     void (async () => {
@@ -415,44 +433,54 @@ export default function SeekPage() {
       {status === "ready" && !hasMore && items.length > 0 ? <GlassPanel className="p-4 text-center text-sm text-muted-foreground">已加载全部 {total} 条求片</GlassPanel> : null}
 
       {detailItem ? (
-        <GlassPanel className="p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Detail</div>
-              <h2 className="mt-2 text-lg font-semibold">{detailItem.video_title_display}</h2>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-background/70 px-3 py-4 backdrop-blur-md sm:p-6">
+          <button type="button" aria-label="关闭详情" className="fixed inset-0" onClick={() => { setDetailItem(null); setDetail(null); }} />
+          <div className="relative my-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-border/70 bg-background/95 shadow-2xl shadow-black/15 backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border/60 p-5 sm:p-6">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Detail</div>
+                <h2 className="mt-2 text-lg font-semibold">{detailItem.video_title_display}</h2>
+              </div>
+              <button type="button" onClick={() => { setDetailItem(null); setDetail(null); }} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <button type="button" onClick={() => { setDetailItem(null); setDetail(null); }} className="rounded-full border border-border/70 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/40">关闭</button>
+            <div className="max-h-[70dvh] overflow-y-auto p-5 sm:p-6">
+              {detail ? (
+                <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">状态 <div className="mt-1 font-mono text-foreground">{STATUS_LABELS[detail.status] || detail.status}</div></div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">求片数 <div className="mt-1 font-mono text-foreground">{textValue(detail.request_count, "0")}</div></div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">悬赏 <div className="mt-1 font-mono text-foreground">{textValue(detail.seek_carrot, "0")}</div></div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">认领人 <div className="mt-1 font-mono text-foreground">{textValue(detail.upload_username, "暂无")}</div></div>
+                </div>
+              ) : <div className="text-sm text-muted-foreground">正在加载详情...</div>}
+            </div>
           </div>
-          {detail ? (
-            <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">状态 <div className="mt-1 font-mono text-foreground">{STATUS_LABELS[detail.status] || detail.status}</div></div>
-              <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">求片数 <div className="mt-1 font-mono text-foreground">{textValue(detail.request_count, "0")}</div></div>
-              <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">悬赏 <div className="mt-1 font-mono text-foreground">{textValue(detail.seek_carrot, "0")}</div></div>
-              <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">认领人 <div className="mt-1 font-mono text-foreground">{textValue(detail.upload_username, "暂无")}</div></div>
-            </div>
-          ) : <div className="mt-4 text-sm text-muted-foreground">正在加载详情...</div>}
-        </GlassPanel>
+        </div>
       ) : null}
 
       {historyItem ? (
-        <GlassPanel className="p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">History</div>
-              <h2 className="mt-2 text-lg font-semibold">{historyItem.video_title_display}</h2>
-            </div>
-            <button type="button" onClick={() => { setHistoryItem(null); setHistory([]); }} className="rounded-full border border-border/70 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/40">关闭</button>
-          </div>
-          <div className="mt-4 divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60">
-            {history.length > 0 ? history.map((item, index) => (
-              <div key={`${item.username}-${item.created_at}-${index}`} className="grid gap-2 p-4 text-sm text-muted-foreground sm:grid-cols-3">
-                <div className="font-medium text-foreground">{item.username}</div>
-                <div>萝卜 {item.carrot}</div>
-                <div>{formatDateTime(item.created_at)}</div>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-background/70 px-3 py-4 backdrop-blur-md sm:p-6">
+          <button type="button" aria-label="关闭历史" className="fixed inset-0" onClick={() => { setHistoryItem(null); setHistory([]); }} />
+          <div className="relative my-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-border/70 bg-background/95 shadow-2xl shadow-black/15 backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border/60 p-5 sm:p-6">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">History</div>
+                <h2 className="mt-2 text-lg font-semibold">{historyItem.video_title_display}</h2>
               </div>
-            )) : <div className="p-4 text-sm text-muted-foreground">暂无求片历史。</div>}
+              <button type="button" onClick={() => { setHistoryItem(null); setHistory([]); }} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-[70dvh] overflow-y-auto p-5 sm:p-6">
+              <div className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60">
+                {history.length > 0 ? history.map((item, index) => (
+                  <div key={`${item.username}-${item.created_at}-${index}`} className="grid gap-2 p-4 text-sm text-muted-foreground sm:grid-cols-3">
+                    <div className="font-medium text-foreground">{item.username}</div>
+                    <div>萝卜 {item.carrot}</div>
+                    <div>{formatDateTime(item.created_at)}</div>
+                  </div>
+                )) : <div className="p-4 text-sm text-muted-foreground">暂无求片历史。</div>}
+              </div>
+            </div>
           </div>
-        </GlassPanel>
+        </div>
       ) : null}
       <ConfirmDialog
         open={pendingAction !== null}

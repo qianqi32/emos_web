@@ -164,6 +164,8 @@ export default function ShopPage() {
   const [productLoadingMore, setProductLoadingMore] = useState(false);
   const [productStatus, setProductStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const productLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const productInitialScrollYRef = useRef(0);
+  const [canAutoLoadMoreProducts, setCanAutoLoadMoreProducts] = useState(false);
 
   const [orders, setOrders] = useState<ShopOrderItem[]>([]);
   const [orderTotal, setOrderTotal] = useState(0);
@@ -416,6 +418,8 @@ export default function ShopPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (activeTab === "products") {
+        setCanAutoLoadMoreProducts(false);
+        productInitialScrollYRef.current = window.scrollY;
         void loadProducts();
       } else if (activeTab === "orders") {
         void loadOrders();
@@ -430,24 +434,38 @@ export default function ShopPage() {
   }, [activeTab, loadMerchantOrders, loadMerchantProducts, loadOrders, loadProducts]);
 
   useEffect(() => {
+    productInitialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - productInitialScrollYRef.current > 160) {
+        setCanAutoLoadMoreProducts(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = productLoadMoreRef.current;
 
-    if (!node || activeTab !== "products" || !productHasMore || productStatus !== "ready" || productLoadingMore) {
+    if (!node || activeTab !== "products" || !productHasMore || productStatus !== "ready" || productLoadingMore || !canAutoLoadMoreProducts) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
+          setCanAutoLoadMoreProducts(false);
           void loadProducts("append", productNextPage);
         }
       },
-      { rootMargin: "420px" }
+      { rootMargin: "120px" }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [activeTab, loadProducts, productHasMore, productLoadingMore, productNextPage, productStatus]);
+  }, [activeTab, canAutoLoadMoreProducts, loadProducts, productHasMore, productLoadingMore, productNextPage, productStatus]);
 
   function handleUseSeller() {
     const nextSellerId = sellerIdInput.trim();

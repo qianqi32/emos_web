@@ -99,6 +99,8 @@ export function MoviesPanel() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollYRef = useRef(0);
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
   const initialTitle = searchParams.get("title") ?? "";
   const initialType = readMediaType(searchParams.get("type"));
   const initialWithMedia = readMediaAvailability(searchParams.get("with_media"));
@@ -170,6 +172,8 @@ export function MoviesPanel() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      setCanAutoLoadMore(false);
+      initialScrollYRef.current = window.scrollY;
       void loadMedia("reset", 1);
     }, 0);
 
@@ -177,21 +181,35 @@ export function MoviesPanel() {
   }, [loadMedia]);
 
   useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
 
-    if (!node || !hasMore || status !== "ready" || loadingMore) {
+    if (!node || !hasMore || status !== "ready" || loadingMore || !canAutoLoadMore) {
       return;
     }
 
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
+        setCanAutoLoadMore(false);
         void loadMedia("append", nextPage);
       }
-    }, { rootMargin: "420px" });
+    }, { rootMargin: "120px" });
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, loadMedia, loadingMore, nextPage, status]);
+  }, [canAutoLoadMore, hasMore, loadMedia, loadingMore, nextPage, status]);
 
   function handleSearch() {
     setSearchTitle(title);

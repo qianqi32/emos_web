@@ -92,6 +92,8 @@ export default function CommunityPage() {
   const [historyUserId, setHistoryUserId] = useState("");
   const [historyQueryKey, setHistoryQueryKey] = useState(0);
   const observerRef = useRef<HTMLDivElement>(null);
+  const initialScrollYRef = useRef(0);
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
 
   function setCommunityTab(tab: TabType) {
     const params = new URLSearchParams(searchParams.toString());
@@ -167,6 +169,8 @@ export default function CommunityPage() {
       if (activeTab === "rank") {
         void loadRankData();
       } else if (activeTab === "carrot") {
+        setCanAutoLoadMore(false);
+        initialScrollYRef.current = window.scrollY;
         void loadCarrotHistory("reset", 1);
       }
     }, 0);
@@ -176,18 +180,34 @@ export default function CommunityPage() {
 
   const loadMoreHistory = useCallback(() => {
     if (!loading && historyTotal > carrotHistory.length) {
+      setCanAutoLoadMore(false);
       void loadCarrotHistory("append", historyPage + 1);
     }
   }, [loading, historyTotal, carrotHistory.length, historyPage, loadCarrotHistory]);
 
   useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!canAutoLoadMore) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && activeTab === "carrot") {
           loadMoreHistory();
         }
       },
-      { threshold: 0.1, rootMargin: "200px" }
+      { threshold: 0.1, rootMargin: "120px" }
     );
 
     if (observerRef.current) {
@@ -195,7 +215,7 @@ export default function CommunityPage() {
     }
 
     return () => observer.disconnect();
-  }, [loadMoreHistory, activeTab]);
+  }, [canAutoLoadMore, loadMoreHistory, activeTab]);
 
   return (
     <div className="space-y-6">

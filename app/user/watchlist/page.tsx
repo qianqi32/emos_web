@@ -111,6 +111,8 @@ export default function WatchlistPage() {
   const [sortInput, setSortInput] = useState("");
   const [message, setMessage] = useState("");
   const [dialogError, setDialogError] = useState("");
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
+  const initialScrollYRef = useRef(0);
 
   const filteredItems = useMemo(() => {
     if (tab === "mine") {
@@ -177,21 +179,40 @@ export default function WatchlistPage() {
   }, [loadItems]);
 
   useEffect(() => {
+    setCanAutoLoadMore(false);
+    initialScrollYRef.current = window.scrollY;
+  }, [appliedSearch, appliedSearchMode]);
+
+  useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
 
-    if (!node || !hasMore || status !== "ready" || action !== "idle") {
+    if (!node || !hasMore || status !== "ready" || action !== "idle" || !canAutoLoadMore) {
       return;
     }
 
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
+        setCanAutoLoadMore(false);
         void loadItems("append", nextPage);
       }
-    }, { rootMargin: "360px" });
+    }, { rootMargin: "120px" });
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [action, hasMore, loadItems, nextPage, status]);
+  }, [action, canAutoLoadMore, hasMore, loadItems, nextPage, status]);
 
   function updateForm(key: keyof WatchFormState, value: string | boolean) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -498,8 +519,6 @@ export default function WatchlistPage() {
       ) : null}
 
       <div ref={loadMoreRef} className="h-8" />
-      {status === "ready" && hasMore ? <GlassPanel className="p-4 text-center text-sm text-muted-foreground">{action === "load-more" ? "正在加载更多片单..." : `已加载 ${items.length} / ${total}，继续下拉加载更多`}</GlassPanel> : null}
-      {status === "ready" && !hasMore && items.length > 0 ? <GlassPanel className="p-4 text-center text-sm text-muted-foreground">已加载全部 {total} 个片单</GlassPanel> : null}
       <ConfirmDialog
         open={pendingAction !== null}
         title={

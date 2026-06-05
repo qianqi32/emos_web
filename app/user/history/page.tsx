@@ -40,6 +40,8 @@ function recordKey(item: RecordListItem) {
 export default function HistoryPage() {
   const { token } = useUserConsole();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollYRef = useRef(0);
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
   const [records, setRecords] = useState<RecordListItem[]>([]);
   const [recordType, setRecordType] = useState<RecordType>("all");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -82,20 +84,38 @@ export default function HistoryPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      setCanAutoLoadMore(false);
+      initialScrollYRef.current = window.scrollY;
       void loadRecords("reset", 1);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadRecords]);
 
   useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
-    if (!node || !hasMore || status !== "ready" || action !== "idle") return;
+    if (!node || !hasMore || status !== "ready" || action !== "idle" || !canAutoLoadMore) return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) void loadRecords("append", nextPage);
-    }, { rootMargin: "360px" });
+      if (entries[0]?.isIntersecting) {
+        setCanAutoLoadMore(false);
+        void loadRecords("append", nextPage);
+      }
+    }, { rootMargin: "120px" });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [action, hasMore, loadRecords, nextPage, status]);
+  }, [action, canAutoLoadMore, hasMore, loadRecords, nextPage, status]);
 
   function runAction(name: string, executor: () => Promise<string>) {
     void (async () => {

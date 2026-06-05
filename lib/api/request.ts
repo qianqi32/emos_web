@@ -90,5 +90,11 @@ export async function requestJson<T>(path: string, token?: string, init?: Reques
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const raw = await response.text();
+
+  if (!raw) {
+    return undefined as T;
+  }
+
+  return JSON.parse(raw) as T;
 }

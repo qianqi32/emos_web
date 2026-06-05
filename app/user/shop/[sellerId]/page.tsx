@@ -54,6 +54,8 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
   const [orderAction, setOrderAction] = useState("idle");
   const [dialogError, setDialogError] = useState("");
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollYRef = useRef(0);
+  const [canAutoLoadMore, setCanAutoLoadMore] = useState(false);
 
   const totalSales = useMemo(() => products.reduce((sum, item) => sum + (item.sales || 0), 0), [products]);
 
@@ -121,6 +123,8 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      setCanAutoLoadMore(false);
+      initialScrollYRef.current = window.scrollY;
       void loadProducts("reset", 1);
     }, 0);
 
@@ -128,24 +132,38 @@ export default function ShopSellerPage({ params }: { params: Promise<{ sellerId:
   }, [loadProducts]);
 
   useEffect(() => {
+    initialScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (window.scrollY - initialScrollYRef.current > 160) {
+        setCanAutoLoadMore(true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
 
-    if (!node || !hasMore || status !== "ready" || loadingMore) {
+    if (!node || !hasMore || status !== "ready" || loadingMore || !canAutoLoadMore) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
+          setCanAutoLoadMore(false);
           void loadProducts("append", nextPage);
         }
       },
-      { rootMargin: "420px" }
+      { rootMargin: "120px" }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, loadProducts, loadingMore, nextPage, status]);
+  }, [canAutoLoadMore, hasMore, loadProducts, loadingMore, nextPage, status]);
 
   function handleSearch() {
     setSearch(searchInput);
